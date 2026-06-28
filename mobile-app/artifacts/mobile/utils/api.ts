@@ -1,0 +1,170 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+
+// Configure base URL based on platform and environment
+const DEV_BASE_URL = Platform.select({
+  android: "http://10.0.2.2:5001", // Android emulator → localhost
+  ios: "http://localhost:5001",
+  default: "http://localhost:5001",
+});
+
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEV_BASE_URL;
+
+const TOKEN_KEY = "payverify_access_token";
+
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  message: string;
+  data?: T;
+  error?: unknown;
+}
+
+class ApiClient {
+  private baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+  }
+
+  private async getToken(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  async setToken(token: string): Promise<void> {
+    await AsyncStorage.setItem(TOKEN_KEY, token);
+  }
+
+  async clearToken(): Promise<void> {
+    await AsyncStorage.removeItem(TOKEN_KEY);
+  }
+
+  async request<T>(
+    method: string,
+    endpoint: string,
+    options?: {
+      body?: Record<string, unknown> | FormData;
+      requireAuth?: boolean;
+      isFormData?: boolean;
+    },
+  ): Promise<ApiResponse<T>> {
+    const url = `${this.baseUrl}/api${endpoint}`;
+    const headers: Record<string, string> = {};
+
+    // Add auth token if needed
+    if (options?.requireAuth !== false) {
+      const token = await this.getToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+    }
+
+    // Set content type (unless FormData which sets its own)
+    if (!options?.isFormData) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    let bodyContent: string | FormData | undefined;
+    if (options?.body) {
+      if (options.isFormData) {
+        bodyContent = options.body as FormData;
+      } else {
+        bodyContent = JSON.stringify(options.body);
+      }
+    }
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: bodyContent,
+      });
+
+      const data = (await response.json()) as ApiResponse<T>;
+
+      if (!response.ok) {
+        // Handle 401 — token expired
+        if (response.status === 401) {
+          await this.clearToken();
+        }
+        return {
+          success: false,
+          message: data.message || `Request failed with status ${response.status}`,
+          error: data.error,
+        };
+      }
+
+      return data;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Network error";
+      console.error(`API Error [${method} ${endpoint}]:`, message);
+      return {
+        success: false,
+        message: `Network error: ${message}. Make sure the backend is running.`,
+      };
+    }
+  }
+
+  // Convenience methods
+  get<T>(endpoint: string, requireAuth = true) {
+    return this.request<T>("GET", endpoint, { requireAuth });
+  }
+
+  post<T>(endpoint: string, body?: Record<string, unknown>, requireAuth = true) {
+    return this.request<T>("POST", endpoint, { body, requireAuth });
+  }
+
+  put<T>(endpoint: string, body?: Record<string, unknown>, requireAuth = true) {
+    return this.request<T>("PUT", endpoint, { body, requireAuth });
+  }
+
+  delete<T>(endpoint: string, requireAuth = true) {
+    return this.request<T>("DELETE", endpoint, { requireAuth });
+  }
+
+  // File upload
+  async uploadFile<T>(
+    endpoint: string,
+    fileUri: string,
+    fieldName = "receipt",
+    additionalFields?: Record<string, string>,
+  ): Promise<ApiResponse<T>> {
+    const formData = new FormData();
+
+    // Get filename and type from URI
+    const uriParts = fileUri.split("/");
+    const fileName = uriParts[uriParts.length - 1] ?? "receipt.jpg";
+    const ext = fileName.split(".").pop()?.toLowerCase() ?? "jpg";
+    const mimeTypes: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      heic: "image/heic",
+    };
+
+    formData.append(fieldName, {
+      uri: fileUri,
+      name: fileName,
+      type: mimeTypes[ext] ?? "image/jpeg",
+    } as unknown as Blob);
+
+    if (additionalFields) {
+      for (const [key, value] of Object.entries(additionalFields)) {
+        formData.append(key, value);
+      }
+    }
+
+    return this.request<T>("POST", endpoint, {
+      body: formData,
+      isFormData: true,
+      requireAuth: true,
+    });
+  }
+}
+
+export const api = new ApiClient(BASE_URL!);
+export { TOKEN_KEY };

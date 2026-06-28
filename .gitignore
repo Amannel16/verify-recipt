@@ -1,0 +1,11 @@
+node_modules/
+mobile-app/node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+web-build/
+*.zip
+.env
+.cache/
+uploads/

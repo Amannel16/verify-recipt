@@ -1,0 +1,196 @@
+Project Customization Prompt
+
+Project Name: PayVerify AI
+
+Objective:
+
+Transform the existing React Native template into a modern SaaS-based mobile application called PayVerify AI, an AI-powered payment verification platform for businesses.
+
+The application must allow users to verify payment receipts by taking a photo, uploading screenshots, or importing receipt images and automatically determine whether a payment is genuine, suspicious, or invalid.
+
+Requirements
+Authentication
+
+Implement:
+
+Sign Up
+Sign In
+Forgot Password
+Google Authentication
+Phone Number Authentication
+Remember Me
+Profile Management
+
+User profile:
+
+Full Name
+Business Name
+Phone Number
+Email
+Profile Photo
+Business Type
+Subscription System
+
+Implement a subscription-based SaaS model.
+
+Plans:
+
+Free
+20 verifications per month
+Pro
+Unlimited verifications
+Reports
+Team members
+Enterprise
+Multi-branch support
+API access
+Priority support
+
+Include:
+
+Subscription status
+Renewal reminders
+Upgrade plan screen
+Payment history
+Receipt Verification
+
+Allow users to:
+
+Take photos using the camera
+Upload screenshots
+Upload images from the gallery
+Import PDF receipts
+
+Extract:
+
+Transaction ID
+Sender Name
+Receiver Name
+Amount
+Date
+Time
+Payment Method
+AI Verification Engine
+
+Analyze receipts and classify them into:
+
+Approved
+
+Valid receipt.
+
+Suspicious
+
+Requires manual review.
+
+Rejected
+
+Invalid or fraudulent receipt.
+
+Detect:
+
+Duplicate receipts
+Edited screenshots
+Missing information
+Suspicious amounts
+Invalid transaction IDs
+Tampered images
+
+Display confidence scores.
+
+Example:
+
+Verification Result
+
+Approved
+
+Confidence: 96%
+
+Transaction ID: TXN-123456
+
+Reason:
+Verified successfully.
+Verification History
+
+Create a history screen.
+
+Store:
+
+Approved receipts
+Suspicious receipts
+Rejected receipts
+
+Add filters:
+
+Today
+This week
+This month
+
+Search by:
+
+Customer
+Transaction ID
+Amount
+Dashboard
+
+Display:
+
+Total scans
+Approved payments
+Rejected payments
+Fraud attempts
+Monthly activity
+Subscription usage
+
+Use charts and statistics cards.
+
+Team Management
+
+Roles:
+
+Owner
+
+Manager
+
+Cashier
+
+Viewer
+
+Features:
+
+Invite team members
+Manage permissions
+View activity logs
+Notifications
+
+Send notifications for:
+
+Fraud alerts
+Duplicate receipts
+Subscription expiry
+Successful verifications
+Reports
+
+Allow exporting:
+
+PDF
+Excel
+CSV
+Offline Support
+
+Store data locally using SQLite.
+
+When internet returns:
+
+Synchronize automatically with the server.
+Additional Features
+
+Implement:
+
+QR code verification
+Dark mode
+Multi-language support
+Branch management
+Audit logs
+Customer database
+Help center
+Feedback system
