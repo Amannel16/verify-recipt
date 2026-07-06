@@ -1,0 +1,85 @@
+// Prisma Schema for PayVerify AI
+// Ethiopian Bank Receipt Verification System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum VerificationStatus {
+  APPROVED
+  SUSPICIOUS
+  REJECTED
+}
+
+model User {
+  id                  String         @id @default(uuid())
+  firstName           String
+  lastName            String
+  email               String         @unique
+  password            String
+  phoneNumber         String?
+  businessName        String?
+  businessType        String         @default("Other")
+  plan                Plan           @default(FREE)
+  verificationsUsed   Int            @default(0)
+  verificationsLimit  Int            @default(20)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  verifications       Verification[]
+
+  @@map("users")
+}
+
+model Verification {
+  id                  String             @id @default(uuid())
+  userId              String
+  status              VerificationStatus
+  confidence          Int                @default(0)
+  transactionId       String?
+  transferReference   String?
+  senderName          String?
+  senderAccount       String?
+  receiverName        String?
+  receiverAccount     String?
+  amount              Float?
+  fees                Float?
+  totalAmount         Float?
+  currency            String             @default("ETB")
+  date                String?
+  time                String?
+  paymentMethod       String?
+  reasons             String[]           @default([])
+  warnings            String[]           @default([])
+  imageUrl            String?
+  receiptUrl          String?
+
+  // Cross-validation data stored as JSON
+  scrapedData         Json?
+  crossValidation     Json?
+
+  // Duplicate detection
+  isDuplicate         Boolean            @default(false)
+  duplicateOf         String?
+
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([transactionId])
+  @@index([createdAt])
+  @@map("verifications")
+}
