@@ -22,6 +22,7 @@ export interface ReceiptAnalysisResult {
   receiverAccount?: string | null;
   fees?: number | null;
   totalAmount?: number | null;
+  receiptUrl?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,7 +88,8 @@ RESPOND ONLY WITH A JSON OBJECT (no markdown, no code fences), using this exact 
   "extractedText": "all readable text from the image",
   "analysisReasons": ["reason1", "reason2"],
   "warnings": ["warning1"] or [],
-  "fraudIndicators": ["indicator1"] or []
+  "fraudIndicators": ["indicator1"] or [],
+  "receiptUrl": "any verification URL visible on the receipt (e.g. https://apps.cbe.com.et/..., https://transactioninfo.ethiotelecom.et/..., etc.) or null"
 }`;
 
     let model = "gemini-2.0-flash";
@@ -100,6 +102,15 @@ RESPOND ONLY WITH A JSON OBJECT (no markdown, no code fences), using this exact 
       attempts++;
       try {
         const apiVersion = model.includes("1.5") ? "v1" : "v1beta";
+        const generationConfig: Record<string, any> = {
+          temperature: 0.1,
+          max_output_tokens: 800,
+        };
+
+        if (apiVersion === "v1beta") {
+          generationConfig.responseMimeType = "application/json";
+        }
+
         response = await fetch(
           `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
           {
@@ -119,11 +130,7 @@ RESPOND ONLY WITH A JSON OBJECT (no markdown, no code fences), using this exact 
                   ],
                 },
               ],
-              generationConfig: {
-                temperature: 0.1,
-                max_output_tokens: 800,
-                response_mime_type: "application/json",
-              },
+              generationConfig,
             }),
             signal: AbortSignal.timeout(15000), // 15 seconds timeout
           },
@@ -137,10 +144,10 @@ RESPOND ONLY WITH A JSON OBJECT (no markdown, no code fences), using this exact 
         logger.warn(`Gemini API attempt ${attempts} (model: ${model}) failed with status ${response.status}: ${errorText}`);
 
         if (response.status === 429) {
-          // Check if we can fall back to 1.5-flash
+          // Check if we can fall back to 2.0-flash-lite
           if (model === "gemini-2.0-flash") {
-            logger.info("Rate limited on gemini-2.0-flash. Switching to fallback model: gemini-1.5-flash");
-            model = "gemini-1.5-flash";
+            logger.info("Rate limited on gemini-2.0-flash. Switching to fallback model: gemini-2.0-flash-lite");
+            model = "gemini-2.0-flash-lite";
             // Do not wait if it's the first failure and we switch model
             continue;
           }
@@ -170,9 +177,9 @@ RESPOND ONLY WITH A JSON OBJECT (no markdown, no code fences), using this exact 
         errorText = err.message || String(err);
         logger.error(`Gemini API attempt ${attempts} (model: ${model}) threw exception: ${errorText}`);
         
-        // If it was a network/fetch error, try switching to 1.5-flash or wait
+        // If it was a network/fetch error, try switching to 2.0-flash-lite or wait
         if (model === "gemini-2.0-flash") {
-          model = "gemini-1.5-flash";
+          model = "gemini-2.0-flash-lite";
           continue;
         }
         await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -223,6 +230,7 @@ RESPOND ONLY WITH A JSON OBJECT (no markdown, no code fences), using this exact 
       analysisReasons?: string[];
       warnings?: string[];
       fraudIndicators?: string[];
+      receiptUrl?: string | null;
     };
 
     // Determine status based on Gemini's analysis
@@ -264,6 +272,7 @@ RESPOND ONLY WITH A JSON OBJECT (no markdown, no code fences), using this exact 
         receiverAccount: parsed.receiverAccount ?? null,
         fees: parsed.fees ?? null,
         totalAmount: parsed.totalAmount ?? null,
+        receiptUrl: parsed.receiptUrl ?? null,
       }
     };
   } catch (error) {
@@ -429,6 +438,186 @@ function analyzeWithRules(imagePath: string): ReceiptAnalysisResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Local OCR text extraction fallback (Tesseract.js)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function analyzeWithLocalOCR(
+  imagePath: string,
+): Promise<ReceiptAnalysisResult | null> {
+  try {
+    logger.info("🔍 Falling back to local OCR text extraction (Tesseract.js)...");
+    const Tesseract = (await import("tesseract.js")).default;
+
+    const result = await Tesseract.recognize(imagePath, "eng");
+    const text = result.data.text;
+
+    if (!text || text.trim().length === 0) {
+      return null;
+    }
+
+    logger.info("📄 Local OCR Text successfully extracted. Running Regex parsing...");
+
+    // 1. Transaction ID patterns
+    let transactionId: string | null = null;
+    let transferReference: string | null = null;
+
+    const cbeTxMatch = text.match(/\b(FT\d{10,20})\b/i);
+    const telebirrTxMatch = text.match(/\b(TX[A-Z0-9]{8,15})\b/i) || text.match(/\b(?:Transaction No|Txn Ref)[:.\s]+([A-Z0-9]{10,18})/i);
+    const dashenTxMatch = text.match(/\b(IPSS[A-Z0-9]{8,15})\b/i) || text.match(/\b(\d{2}IPSS[A-Z0-9]{8,15})\b/i);
+
+    if (cbeTxMatch) transactionId = cbeTxMatch[1].toUpperCase();
+    else if (telebirrTxMatch) transactionId = telebirrTxMatch[1];
+    else if (dashenTxMatch) {
+      transactionId = dashenTxMatch[0];
+      transferReference = dashenTxMatch[0];
+    } else {
+      const genTxMatch = text.match(/(?:txn ref|reference no|transaction id|ref no|transaction ref)[:\s]*([A-Z0-9_-]{8,24})/i);
+      if (genTxMatch) transactionId = genTxMatch[1];
+    }
+
+    // 2. Local parser state
+    let amount: number | null = null;
+    let senderName: string | null = null;
+    let receiverName: string | null = null;
+
+    // Helper name cleaner
+    const cleanName = (val: string): string => {
+      return val
+        .replace(/[^a-zA-Z\s.-]/g, "") // Remove numbers, slashes, other characters
+        .replace(/\b(?:account|no|number|date|time|ref|txn|method|status|success|fee|birr|etb|to|from|by|payer|receiver|payee|credited|party|beneficiary|holder)\b.*/gi, "") // Cut off trailing labels
+        .replace(/\s+/g, " ")
+        .trim();
+    };
+
+    // Split text into lines for granular parsing
+    const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const candidateAmounts: Array<{ val: number; hasLabel: boolean }> = [];
+    const accountHolders: string[] = [];
+
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase();
+      
+      // Amount Extraction (Skip lines mentioning bank balance)
+      const isBalanceLine = lowerLine.includes("balance") || lowerLine.includes("bal") || lowerLine.includes("avail") || lowerLine.includes("rem ");
+      
+      if (!isBalanceLine) {
+        // Look for amount labels
+        const labelMatch = line.match(/(?:transferred amount|transaction amount|total paid|amount|total amount|sum|total|net amount|paid)[:\s]*(?:etb|birr)?\s*([\d,]+\.\d{2})/i);
+        if (labelMatch?.[1]) {
+          const val = parseFloat(labelMatch[1].replace(/,/g, ""));
+          if (!isNaN(val) && val > 0) {
+            candidateAmounts.push({ val, hasLabel: true });
+          }
+        } else {
+          // Look for generic currency amounts
+          const genMatch = line.match(/(?:etb|birr)\s*([\d,]+\.\d{2})/i) || line.match(/([\d,]+\.\d{2})\s*(?:etb|birr)/i);
+          if (genMatch?.[1]) {
+            const val = parseFloat(genMatch[1].replace(/,/g, ""));
+            if (!isNaN(val) && val > 0) {
+              candidateAmounts.push({ val, hasLabel: false });
+            }
+          }
+        }
+      }
+
+      // Name Extraction (Payer/Sender)
+      const senderMatch = line.match(/^\s*(?:from|sender|payer|source\s*name|paid\s*by|source|payer\s*name|transfer\s*from|sender's\s*name|debited\s*from)[：:;\-.\s|Il1]+(.+)$/i);
+      if (senderMatch?.[1] && !senderName) {
+        const cleaned = cleanName(senderMatch[1]);
+        if (cleaned.length > 2) senderName = cleaned;
+      }
+
+      // Name Extraction (Receiver/Payee)
+      const receiverMatch = line.match(/^\s*(?:to|receiver|payee|beneficiary|credited\s*party|beneficiary\s*name|paid\s*to|credited\s*party\s*name|transfer\s*to|receiver's\s*name|for|paid\s*for)[：:;\-.\s|Il1]+(.+)$/i);
+      if (receiverMatch?.[1] && !receiverName) {
+        const cleaned = cleanName(receiverMatch[1]);
+        if (cleaned.length > 2) receiverName = cleaned;
+      }
+
+      // Account Holder Name Match
+      const holderMatch = line.match(/^\s*(?:account\s*holder\s*name|holder\s*name)[：:;\-.\s|Il1]+(.+)$/i);
+      if (holderMatch?.[1]) {
+        const cleaned = cleanName(holderMatch[1]);
+        if (cleaned.length > 2) {
+          accountHolders.push(cleaned);
+        }
+      }
+    }
+
+    // Resolve Dashen bank style multiple holder names
+    if (accountHolders.length >= 2) {
+      if (!senderName) senderName = accountHolders[0];
+      if (!receiverName) receiverName = accountHolders[1];
+    } else if (accountHolders.length === 1) {
+      if (!senderName) senderName = accountHolders[0];
+      else if (!receiverName) receiverName = accountHolders[0];
+    }
+
+    // Resolve Amount
+    const strongCandidates = candidateAmounts.filter(c => c.hasLabel);
+    if (strongCandidates.length > 0) {
+      amount = strongCandidates[0].val;
+    } else if (candidateAmounts.length > 0) {
+      amount = candidateAmounts[0].val;
+    }
+
+    // 4. Detected payment method
+    let paymentMethod: string | null = null;
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes("telebirr")) paymentMethod = "telebirr";
+    else if (lowerText.includes("commercial bank") || lowerText.includes("cbe")) paymentMethod = "CBE";
+    else if (lowerText.includes("dashen")) paymentMethod = "Dashen Bank";
+    else if (lowerText.includes("abyssinia") || lowerText.includes("boa")) paymentMethod = "Bank of Abyssinia";
+    else if (lowerText.includes("awash")) paymentMethod = "Awash Bank";
+    else if (lowerText.includes("zemen")) paymentMethod = "Zemen Bank";
+    else if (lowerText.includes("m-pesa") || lowerText.includes("safaricom")) paymentMethod = "M-Pesa";
+
+    // 5. Date and Time
+    let date: string | null = null;
+    let time: string | null = null;
+    const dateMatch = text.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (dateMatch) {
+      date = dateMatch[0];
+    }
+    const timeMatch = text.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    if (timeMatch) {
+      time = timeMatch[0];
+    }
+
+    // 6. Verification URL pattern
+    let receiptUrl: string | null = null;
+    const urlMatch = text.match(/https?:\/\/[^\s<>"]+/i);
+    if (urlMatch) {
+      receiptUrl = urlMatch[0].replace(/[.,;:!?)]+$/, "");
+    }
+
+    const reasons = ["Successfully extracted text locally using Tesseract OCR fallback"];
+    const warnings = ["⚠️ Local OCR fallback used — name extraction accuracy might be lower"];
+
+    return {
+      status: transactionId && amount ? "APPROVED" : "SUSPICIOUS",
+      confidence: transactionId && amount ? 60 : 40,
+      transactionId,
+      transferReference,
+      senderName,
+      receiverName,
+      amount,
+      currency: "ETB",
+      date,
+      time,
+      paymentMethod,
+      reasons,
+      warnings,
+      rawExtractedText: text,
+      receiptUrl,
+    };
+  } catch (error) {
+    logger.error("Local OCR text extraction failed:", error);
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main analysis function
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -446,7 +635,19 @@ export async function analyzeReceiptImage(
     return geminiResult;
   }
 
-  // Fall back to rule-based analysis
+  // Fall back to local OCR analysis (Tesseract.js)
+  const localOcrResult = await analyzeWithLocalOCR(imagePath);
+  if (localOcrResult) {
+    if (geminiError) {
+      localOcrResult.warnings.push(`⚠️ Gemini API rate-limited: ${geminiError}`);
+    }
+    logger.info(
+      `📷 Local OCR analysis complete: ${localOcrResult.status} (${localOcrResult.confidence}%)`,
+    );
+    return localOcrResult;
+  }
+
+  // Fall back to rule-based analysis (file metadata only)
   const ruleResult = analyzeWithRules(imagePath);
   if (geminiError) {
     ruleResult.warnings.push(`⚠️ AI Extraction Failed: ${geminiError}`);
