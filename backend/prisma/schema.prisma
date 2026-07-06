@@ -72,6 +72,7 @@ model Verification {
   // Duplicate detection
   isDuplicate         Boolean            @default(false)
   duplicateOf         String?
+  receiptHash         String?
 
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
@@ -80,6 +81,7 @@ model Verification {
 
   @@index([userId])
   @@index([transactionId])
+  @@index([receiptHash])
   @@index([createdAt])
   @@map("verifications")
 }
