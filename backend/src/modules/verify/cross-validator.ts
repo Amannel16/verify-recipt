@@ -49,9 +49,93 @@ function levenshteinDistance(a: string, b: string): number {
   return dp[m][n];
 }
 
+// ─────────────────────────────────────────────────────────────
+// Fuzzy String Matching Helpers (Levenshtein, Jaro-Winkler, Dice)
+// ─────────────────────────────────────────────────────────────
+
+function jaroSimilarity(s1: string, s2: string): number {
+  const m = s1.length;
+  const n = s2.length;
+  if (m === 0 && n === 0) return 1;
+  if (m === 0 || n === 0) return 0;
+
+  const matchWindow = Math.max(0, Math.floor(Math.max(m, n) / 2) - 1);
+  const s1Matches = new Array(m).fill(false);
+  const s2Matches = new Array(n).fill(false);
+
+  let matches = 0;
+  for (let i = 0; i < m; i++) {
+    const start = Math.max(0, i - matchWindow);
+    const end = Math.min(n - 1, i + matchWindow);
+    for (let j = start; j <= end; j++) {
+      if (!s2Matches[j] && s1[i] === s2[j]) {
+        s1Matches[i] = true;
+        s2Matches[j] = true;
+        matches++;
+        break;
+      }
+    }
+  }
+
+  if (matches === 0) return 0;
+
+  let transpositions = 0;
+  let k = 0;
+  for (let i = 0; i < m; i++) {
+    if (s1Matches[i]) {
+      while (!s2Matches[k]) k++;
+      if (s1[i] !== s2[k]) {
+        transpositions++;
+      }
+      k++;
+    }
+  }
+
+  const t = transpositions / 2;
+  return (matches / m + matches / n + (matches - t) / matches) / 3;
+}
+
+function jaroWinklerSimilarity(s1: string, s2: string): number {
+  const jaro = jaroSimilarity(s1, s2);
+  if (jaro < 0.7) return jaro;
+
+  let prefix = 0;
+  const maxPrefix = Math.min(4, s1.length, s2.length);
+  for (let i = 0; i < maxPrefix; i++) {
+    if (s1[i] === s2[i]) {
+      prefix++;
+    } else {
+      break;
+    }
+  }
+
+  const p = 0.1;
+  return jaro + prefix * p * (1 - jaro);
+}
+
+function diceTokenSimilarity(s1: string, s2: string): number {
+  const tokens1 = s1.split(" ").filter(Boolean);
+  const tokens2 = s2.split(" ").filter(Boolean);
+
+  if (tokens1.length === 0 && tokens2.length === 0) return 1;
+  if (tokens1.length === 0 || tokens2.length === 0) return 0;
+
+  const set1 = new Set(tokens1);
+  const set2 = new Set(tokens2);
+
+  let intersection = 0;
+  for (const t of set1) {
+    if (set2.has(t)) {
+      intersection++;
+    }
+  }
+
+  return (2 * intersection) / (set1.size + set2.size);
+}
+
 /**
- * Computes a similarity score (0–100) between two strings using Levenshtein distance.
- * Handles common name variations (case, whitespace, honorifics, abbreviations).
+ * Computes a similarity score (0–100) between two strings combining Levenshtein,
+ * Jaro-Winkler, and Dice Token similarity to address abbreviations and word-order changes.
  */
 function nameSimilarity(a: string | null | undefined, b: string | null | undefined): number {
   if (!a || !b) return 0;
@@ -71,19 +155,21 @@ function nameSimilarity(a: string | null | undefined, b: string | null | undefin
   if (normA === normB) return 100;
   if (normA.length === 0 || normB.length === 0) return 0;
 
-  // Check if one contains the other (common with partial names)
-  if (normA.includes(normB) || normB.includes(normA)) {
-    const shorter = Math.min(normA.length, normB.length);
-    const longer = Math.max(normA.length, normB.length);
-    return Math.round((shorter / longer) * 100);
-  }
-
-  // Levenshtein-based similarity
+  // 1. Levenshtein-based similarity
   const distance = levenshteinDistance(normA, normB);
   const maxLen = Math.max(normA.length, normB.length);
-  const similarity = Math.round(((maxLen - distance) / maxLen) * 100);
+  const levSim = maxLen > 0 ? (maxLen - distance) / maxLen : 0;
 
-  return Math.max(0, similarity);
+  // 2. Jaro-Winkler similarity
+  const jwSim = jaroWinklerSimilarity(normA, normB);
+
+  // 3. Dice Token similarity (handles swapped token orders gracefully)
+  const diceSim = diceTokenSimilarity(normA, normB);
+
+  // Average the similarities: 40% JW, 30% Levenshtein, 30% Dice
+  const averageSim = (jwSim * 0.40 + levSim * 0.30 + diceSim * 0.30) * 100;
+
+  return Math.max(0, Math.min(100, Math.round(averageSim)));
 }
 
 /**
