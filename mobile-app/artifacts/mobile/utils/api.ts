@@ -3,9 +3,9 @@ import { Platform } from "react-native";
 
 // Configure base URL based on platform and environment
 const DEV_BASE_URL = Platform.select({
-  android: "http://10.0.2.2:5001", // Android emulator → localhost
-  ios: "http://localhost:5001",
-  default: "http://localhost:5001",
+  android: "http://10.0.2.2:6000", // Android emulator → localhost
+  ios: "http://localhost:6000",
+  default: "http://localhost:6000",
 });
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEV_BASE_URL;
