@@ -1,0 +1,19 @@
+import dotenv from "dotenv";
+dotenv.config();
+
+const appConfig = {
+  PORT: parseInt(process.env.PORT || "6000", 10),
+  DATABASE_URL: process.env.DATABASE_URL || "",
+
+  ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET || "default-secret",
+  ACCESS_TOKEN_EXPIRY: process.env.ACCESS_TOKEN_EXPIRY || "1h",
+  REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET || "default-refresh-secret",
+  REFRESH_TOKEN_EXPIRY: process.env.REFRESH_TOKEN_EXPIRY || "7d",
+
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
+  TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || "",
+
+  UPLOADS_DIR: "uploads",
+} as const;
+
+export default appConfig;
