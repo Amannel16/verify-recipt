@@ -7,8 +7,9 @@ import { analyzeReceiptImage, type ReceiptAnalysisResult } from "./ai-engine.js"
 import { scrapeReceiptUrl, type ScrapedReceiptData } from "./receipt-scraper.js";
 import { extractReceiptUrl, detectProviderFromName } from "./url-extractor.js";
 import { crossValidate, type CrossValidationResult } from "./cross-validator.js";
-import { checkForDuplicates, type DuplicateCheckResult } from "./duplicate-detector.js";
+import { checkForDuplicates, generateReceiptHash } from "./duplicate-detector.js";
 import { decodeQrCode } from "../../utils/helper/qr-decoder.js";
+import { preprocessReceiptImage, cleanupTempImages } from "../../utils/helper/image-preprocessor.js";
 
 // ─────────────────────────────────────────────────────────────
 // Supportive Validation Helpers
@@ -98,6 +99,7 @@ function validateAmount(amount: number | null): {
  */
 export async function verifyReceipt(req: Request, res: Response): Promise<void> {
   const startTime = Date.now();
+  let preprocessedImages: any = null;
 
   try {
     const userId = req.user?.userId;
@@ -136,19 +138,30 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
 
     logger.info(`📷 Receipt uploaded: ${file.filename} (${Math.round(file.size / 1024)}KB)`);
 
-    // Step 2: AI-powered receipt analysis
-    logger.info("🤖 Step 2: Running AI extraction...");
-    const aiResult: ReceiptAnalysisResult = await analyzeReceiptImage(imagePath);
+    // Step 1.5: Image Preprocessing (Sharp)
+    logger.info("🖼️ Step 1.5: Preprocessing uploaded image...");
+    preprocessedImages = await preprocessReceiptImage(imagePath);
 
-    // Step 3: URL detection and scraping
+    // Step 2: AI-powered receipt analysis (with multi-pass OCR & dual routing)
+    logger.info("🤖 Step 2: Running AI extraction...");
+    const aiResult: ReceiptAnalysisResult = await analyzeReceiptImage(imagePath, preprocessedImages);
+
+    // Step 3: URL detection and scraping (QR Code & scraper fallback)
     logger.info("🔗 Step 3: Detecting receipt URL...");
     let scrapedData: ScrapedReceiptData | null = null;
     let crossValidation: CrossValidationResult | null = null;
     let receiptUrl = aiResult.receiptUrl || null;
 
-    // Try to decode QR Code from image if no text URL extracted yet
+    // Try to decode QR Code from optimized images if not found in text yet
     if (!receiptUrl) {
-      const qrUrl = await decodeQrCode(imagePath);
+      logger.info("📸 Running hybrid QR detection on original image...");
+      let qrUrl = await decodeQrCode(preprocessedImages.original);
+      
+      if (!qrUrl) {
+        logger.info("📸 QR not found on original. Trying optimized thresholded variant...");
+        qrUrl = await decodeQrCode(preprocessedImages.thresholded);
+      }
+      
       if (qrUrl) {
         receiptUrl = qrUrl;
         logger.info(`📸 Decoded verification URL from receipt QR Code: ${receiptUrl}`);
@@ -191,12 +204,15 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       logger.info("ℹ️ No receipt URL detected — skipping URL verification");
     }
 
-    // Step 5: Duplicate detection
+    // Step 5: Duplicate detection (using composite receipt hashing)
     logger.info("🔍 Step 5: Checking for duplicates...");
-    const duplicateCheck: DuplicateCheckResult = await checkForDuplicates(
+    const duplicateCheck = await checkForDuplicates(
       aiResult.transactionId,
       aiResult.amount,
       aiResult.senderName,
+      aiResult.receiverName,
+      aiResult.date,
+      aiResult.paymentMethod,
       userId,
     );
 
@@ -257,6 +273,15 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       finalStatus = "REJECTED";
     }
 
+    // Generate unique receipt signature hash for database duplicate checking
+    const receiptHash = generateReceiptHash(
+      aiResult.paymentMethod,
+      aiResult.amount,
+      aiResult.senderName,
+      aiResult.receiverName,
+      aiResult.date
+    );
+
     // Step 8: Save to database
     logger.info("💾 Step 8: Saving verification result...");
     const verification = await db.verification.create({
@@ -287,6 +312,7 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
           : undefined,
         isDuplicate: duplicateCheck.isDuplicate,
         duplicateOf: duplicateCheck.duplicateOf,
+        receiptHash,
       },
     });
 
@@ -357,6 +383,11 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       message: "Verification failed. Please try again.",
       error: error instanceof Error ? error.message : "Unknown error",
     });
+  } finally {
+    // Clean up temporary image variants
+    if (preprocessedImages?.tempPaths?.length > 0) {
+      await cleanupTempImages(preprocessedImages.tempPaths);
+    }
   }
 }
 
