@@ -5,6 +5,33 @@ import { api } from "@/utils/api";
 
 export type VerificationStatus = "approved" | "suspicious" | "rejected";
 
+export interface FieldMatch {
+  field: string;
+  aiValue: string | number | null;
+  scrapedValue: string | number | null;
+  matches: boolean;
+  confidence: number;
+  note?: string;
+}
+
+export interface CrossValidationData {
+  overallMatch: "MATCH" | "PARTIAL_MATCH" | "MISMATCH" | "UNABLE_TO_VERIFY";
+  crossValidationScore: number;
+  fieldMatches: FieldMatch[];
+  discrepancies: string[];
+  summary: string;
+}
+
+export interface ScrapedData {
+  isValid: boolean;
+  senderName?: string;
+  receiverName?: string;
+  amount?: number;
+  transactionId?: string;
+  date?: string;
+  status?: string;
+}
+
 export interface VerificationRecord {
   id: string;
   status: VerificationStatus;
@@ -22,6 +49,10 @@ export interface VerificationRecord {
   imageUri?: string;
   createdAt: string;
   userId: string;
+  receiptUrl?: string | null;
+  scrapedData?: ScrapedData | null;
+  crossValidation?: CrossValidationData | null;
+  isDuplicate?: boolean;
 }
 
 interface VerificationContextType {
@@ -63,6 +94,10 @@ function normalizeVerification(v: Record<string, unknown>): VerificationRecord {
     imageUri: (v.imageUrl as string) ?? (v.imageUri as string) ?? undefined,
     createdAt: (v.createdAt as string) ?? new Date().toISOString(),
     userId: (v.userId as string) ?? "",
+    receiptUrl: (v.receiptUrl as string) ?? null,
+    scrapedData: (v.scrapedData as ScrapedData) ?? null,
+    crossValidation: (v.crossValidation as CrossValidationData) ?? null,
+    isDuplicate: (v.isDuplicate as boolean) ?? false,
   };
 }
 
