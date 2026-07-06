@@ -1,6 +1,37 @@
 import { api } from "@/utils/api";
 import type { VerificationStatus } from "@/contexts/VerificationContext";
 
+// ─────────────────────────────────────────────────────────────
+// Types for Cross-Validation & Scraped Data
+// ─────────────────────────────────────────────────────────────
+
+export interface FieldMatch {
+  field: string;
+  aiValue: string | number | null;
+  scrapedValue: string | number | null;
+  matches: boolean;
+  confidence: number;
+  note?: string;
+}
+
+export interface CrossValidationData {
+  overallMatch: "MATCH" | "PARTIAL_MATCH" | "MISMATCH" | "UNABLE_TO_VERIFY";
+  crossValidationScore: number;
+  fieldMatches: FieldMatch[];
+  discrepancies: string[];
+  summary: string;
+}
+
+export interface ScrapedData {
+  isValid: boolean;
+  senderName?: string;
+  receiverName?: string;
+  amount?: number;
+  transactionId?: string;
+  date?: string;
+  status?: string;
+}
+
 export interface AnalysisResult {
   id: string;
   status: VerificationStatus;
@@ -16,12 +47,18 @@ export interface AnalysisResult {
   reasons: string[];
   warnings: string[];
   imageUrl?: string;
+  receiptUrl?: string | null;
+  scrapedData?: ScrapedData | null;
+  crossValidation?: CrossValidationData | null;
+  isDuplicate?: boolean;
+  duplicateRiskLevel?: string;
+  processingTimeMs?: number;
 }
 
 /**
  * Analyzes a receipt image by uploading it to the backend API.
- * The backend performs AI analysis (Gemini Vision or rule-based)
- * and optionally cross-validates with M-Pesa.
+ * The backend performs AI analysis (Gemini Vision or rule-based),
+ * URL scraping, cross-validation, and duplicate detection.
  */
 export async function analyzeReceipt(
   imageUri: string,
@@ -62,5 +99,11 @@ export async function analyzeReceipt(
     reasons: (data.reasons as string[]) ?? [],
     warnings: (data.warnings as string[]) ?? [],
     imageUrl: (data.imageUrl as string) ?? undefined,
+    receiptUrl: (data.receiptUrl as string) ?? null,
+    scrapedData: (data.scrapedData as ScrapedData) ?? null,
+    crossValidation: (data.crossValidation as CrossValidationData) ?? null,
+    isDuplicate: (data.isDuplicate as boolean) ?? false,
+    duplicateRiskLevel: (data.duplicateRiskLevel as string) ?? "NONE",
+    processingTimeMs: (data.processingTimeMs as number) ?? undefined,
   };
 }
