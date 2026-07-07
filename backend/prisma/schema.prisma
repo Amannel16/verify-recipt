@@ -69,6 +69,10 @@ model Verification {
   scrapedData         Json?
   crossValidation     Json?
 
+  // Security analysis data stored as JSON
+  domainValidation    Json?
+  riskAssessment      Json?
+
   // Duplicate detection
   isDuplicate         Boolean            @default(false)
   duplicateOf         String?
