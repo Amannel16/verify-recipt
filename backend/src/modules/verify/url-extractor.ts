@@ -99,17 +99,11 @@ export function extractReceiptUrl(text: string): ExtractedUrl | null {
     }
   }
 
-  // Fallback: detect any generic URL in the text
-  const genericUrlMatch = text.match(/https?:\/\/[^\s"'<>]{10,}/gi);
-  if (genericUrlMatch) {
-    const url = genericUrlMatch[0].replace(/[.,;:!?)]+$/, "");
-    const provider = detectProviderFromUrl(url);
-    const receiptId = extractReceiptIdFromUrl(url);
-
-    logger.info(`🔗 Detected generic receipt URL (provider: ${provider}): ${url}`);
-    return { url, provider, receiptId };
-  }
-
+  // SECURITY: Do NOT follow unknown/generic URLs found in receipt text.
+  // An attacker can embed a URL to a fake verification page (e.g. cbebank-verify.com).
+  // Only URLs matching known bank domain patterns above are trusted.
+  // If no known pattern matched, return null and let the pipeline proceed without URL verification.
+  logger.info("🔒 No known bank URL pattern matched in text — skipping URL extraction for security");
   return null;
 }
 
