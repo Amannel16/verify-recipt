@@ -100,6 +100,7 @@ export default function HistoryScreen() {
 
       {/* Date Filter */}
       <FlatList
+        style={{ flexGrow: 0, flexShrink: 0 }}
         data={DATE_FILTERS}
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -135,6 +136,7 @@ export default function HistoryScreen() {
 
       {/* Status filter */}
       <FlatList
+        style={{ flexGrow: 0, flexShrink: 0 }}
         data={STATUS_FILTERS}
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -211,9 +213,10 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 5,
+    height: 34,
     paddingHorizontal: 12,
-    paddingVertical: 7,
     borderRadius: 100,
     borderWidth: 1,
   },
