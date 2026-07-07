@@ -10,77 +10,8 @@ import { crossValidate, type CrossValidationResult } from "./cross-validator.js"
 import { checkForDuplicates, generateReceiptHash } from "./duplicate-detector.js";
 import { decodeQrCode } from "../../utils/helper/qr-decoder.js";
 import { preprocessReceiptImage, cleanupTempImages } from "../../utils/helper/image-preprocessor.js";
-
-// ─────────────────────────────────────────────────────────────
-// Supportive Validation Helpers
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Validates the transaction date is not too old or in the future.
- */
-function validateTransactionDate(dateStr: string | null): {
-  warnings: string[];
-  penaltyScore: number;
-} {
-  const warnings: string[] = [];
-  let penaltyScore = 0;
-
-  if (!dateStr) return { warnings, penaltyScore };
-
-  try {
-    const txnDate = new Date(dateStr);
-    const now = new Date();
-
-    if (isNaN(txnDate.getTime())) return { warnings, penaltyScore };
-
-    // Check if in the future
-    if (txnDate > now) {
-      warnings.push("⚠️ Transaction date is in the future — likely fraudulent");
-      penaltyScore = 30;
-    }
-
-    // Check if too old (> 90 days)
-    const daysDiff = (now.getTime() - txnDate.getTime()) / (1000 * 60 * 60 * 24);
-    if (daysDiff > 90) {
-      warnings.push(`⚠️ Transaction is ${Math.round(daysDiff)} days old — receipts older than 90 days should be verified manually`);
-      penaltyScore = 10;
-    } else if (daysDiff > 30) {
-      warnings.push(`ℹ️ Transaction is ${Math.round(daysDiff)} days old`);
-      penaltyScore = 5;
-    }
-  } catch {
-    // Invalid date format — non-critical
-  }
-
-  return { warnings, penaltyScore };
-}
-
-/**
- * Validates the transaction amount for suspicious patterns.
- */
-function validateAmount(amount: number | null): {
-  warnings: string[];
-  penaltyScore: number;
-} {
-  const warnings: string[] = [];
-  let penaltyScore = 0;
-
-  if (amount == null) return { warnings, penaltyScore };
-
-  // Extremely small amounts
-  if (amount < 1) {
-    warnings.push("⚠️ Amount is less than 1 ETB — suspiciously small");
-    penaltyScore = 10;
-  }
-
-  // Extremely large amounts
-  if (amount > 500000) {
-    warnings.push("⚠️ Amount exceeds 500,000 ETB — high-value transaction, verify carefully");
-    penaltyScore = 5;
-  }
-
-  return { warnings, penaltyScore };
-}
+import { validateDomain, type DomainValidationResult } from "./domain-validator.js";
+import { calculateRiskScore, type RiskAssessment } from "./risk-scorer.js";
 
 // ─────────────────────────────────────────────────────────────
 // MAIN: Verify Receipt
@@ -90,11 +21,11 @@ function validateAmount(amount: number | null): {
  * Full verification pipeline:
  * 1. Upload & validate image
  * 2. AI extraction (Gemini with fallback)
- * 3. URL detection & scraping
- * 4. Cross-validation (AI vs scraped)
- * 5. Duplicate detection
- * 6. Supportive validations
- * 7. Final confidence aggregation
+ * 3. URL detection & domain validation (SECURITY GATE)
+ * 4. Scraping (only if domain is trusted)
+ * 5. Cross-validation (AI vs scraped)
+ * 6. Duplicate detection
+ * 7. Risk scoring (centralized)
  * 8. Save to database
  */
 export async function verifyReceipt(req: Request, res: Response): Promise<void> {
@@ -146,10 +77,11 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
     logger.info("🤖 Step 2: Running AI extraction...");
     const aiResult: ReceiptAnalysisResult = await analyzeReceiptImage(imagePath, preprocessedImages);
 
-    // Step 3: URL detection and scraping (QR Code & scraper fallback)
+    // Step 3: URL detection (QR Code & text extraction)
     logger.info("🔗 Step 3: Detecting receipt URL...");
     let scrapedData: ScrapedReceiptData | null = null;
     let crossValidation: CrossValidationResult | null = null;
+    let domainValidation: DomainValidationResult | null = null;
     let receiptUrl = aiResult.receiptUrl || null;
 
     // Try to decode QR Code from optimized images if not found in text yet
@@ -181,24 +113,62 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       receiptUrl = req.body.receiptUrl;
     }
 
+    // ── Step 3.5: DOMAIN VALIDATION (Security Gate) ──
+    const urlWasFound = !!receiptUrl;
+
     if (receiptUrl) {
-      logger.info(`🌐 Step 3b: Scraping receipt from URL: ${receiptUrl}`);
-      try {
-        const provider =
-          detectProviderFromName(aiResult.paymentMethod || "") || "unknown";
-        const receiptId = aiResult.transactionId || "";
+      logger.info(`🔒 Step 3.5: Validating domain for URL: ${receiptUrl}`);
 
-        scrapedData = await scrapeReceiptUrl(receiptUrl, provider, receiptId);
+      // Detect the bank provider from AI extraction
+      const detectedBank = detectProviderFromName(aiResult.paymentMethod || "") || null;
+      domainValidation = validateDomain(receiptUrl, detectedBank);
 
-        if (scrapedData && scrapedData.isValid) {
-          // Step 4: Cross-validate AI extraction vs scraped data
-          logger.info("🔄 Step 4: Running cross-validation...");
-          crossValidation = crossValidate(aiResult, scrapedData);
-        } else {
-          logger.warn("⚠️ URL scraping returned invalid data — skipping cross-validation");
+      if (domainValidation.isTrusted && !domainValidation.hasBankMismatch) {
+        // ✅ Domain is trusted and matches the detected bank — safe to scrape
+        logger.info(`✅ Domain trusted. Proceeding to scrape: ${receiptUrl}`);
+
+        try {
+          const provider = domainValidation.matchedProvider || detectedBank || "unknown";
+          const receiptId = aiResult.transactionId || "";
+
+          scrapedData = await scrapeReceiptUrl(receiptUrl, provider, receiptId);
+
+          if (scrapedData && scrapedData.isValid) {
+            // Step 4: Cross-validate AI extraction vs scraped data
+            logger.info("🔄 Step 4: Running cross-validation...");
+            crossValidation = crossValidate(aiResult, scrapedData);
+          } else {
+            logger.warn("⚠️ URL scraping returned invalid data — skipping cross-validation");
+          }
+        } catch (error) {
+          logger.error("URL scraping failed:", error);
         }
-      } catch (error) {
-        logger.error("URL scraping failed:", error);
+      } else if (domainValidation.isTrusted && domainValidation.hasBankMismatch) {
+        // ⚠️ Domain is trusted but belongs to a different bank — scrape with caution
+        logger.warn(
+          `⚠️ Domain is trusted but bank mismatch detected. OCR: "${detectedBank}", URL: "${domainValidation.matchedProvider}". Scraping with caution.`
+        );
+
+        try {
+          const provider = domainValidation.matchedProvider || "unknown";
+          const receiptId = aiResult.transactionId || "";
+
+          scrapedData = await scrapeReceiptUrl(receiptUrl, provider, receiptId);
+
+          if (scrapedData && scrapedData.isValid) {
+            logger.info("🔄 Step 4: Running cross-validation (bank mismatch context)...");
+            crossValidation = crossValidate(aiResult, scrapedData);
+          }
+        } catch (error) {
+          logger.error("URL scraping failed (bank mismatch context):", error);
+        }
+      } else {
+        // 🚫 Domain is NOT trusted — DO NOT scrape
+        logger.warn(
+          `🚫 SECURITY: Refusing to scrape untrusted domain "${domainValidation.hostname}". ` +
+          `This URL will NOT be followed. Penalties applied.`
+        );
+        // scrapedData and crossValidation remain null — the risk scorer will apply penalties
       }
     } else {
       logger.info("ℹ️ No receipt URL detected — skipping URL verification");
@@ -216,62 +186,46 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       userId,
     );
 
-    // Step 6: Supportive validations
-    logger.info("✅ Step 6: Running supportive validations...");
-    const dateValidation = validateTransactionDate(aiResult.date);
-    const amountValidation = validateAmount(aiResult.amount);
+    // Step 6: Centralized Risk Scoring
+    logger.info("📊 Step 6: Running centralized risk assessment...");
+    const riskAssessment: RiskAssessment = calculateRiskScore(
+      aiResult.confidence,
+      domainValidation,
+      crossValidation,
+      duplicateCheck,
+      aiResult.date,
+      aiResult.amount,
+      urlWasFound,
+    );
 
-    // Step 7: Final confidence aggregation
-    logger.info("📊 Step 7: Aggregating final confidence score...");
-    let finalConfidence = aiResult.confidence;
-    let finalStatus = aiResult.status;
-    const allWarnings = [...aiResult.warnings];
-    const allReasons = [...aiResult.reasons];
+    const finalConfidence = riskAssessment.totalScore;
+    const finalStatus = riskAssessment.verdict;
 
-    // Apply cross-validation impact
+    // Collect all warnings and reasons
+    const allWarnings: string[] = [...aiResult.warnings];
+    const allReasons: string[] = [...aiResult.reasons];
+
+    // Add domain validation warnings
+    if (domainValidation) {
+      allWarnings.push(...domainValidation.warnings);
+    }
+
+    // Add duplicate warnings
+    if (duplicateCheck.reasons.length > 0) {
+      allWarnings.push(...duplicateCheck.reasons);
+    }
+
+    // Add cross-validation discrepancies
     if (crossValidation) {
       if (crossValidation.overallMatch === "MATCH") {
-        finalConfidence = Math.min(100, finalConfidence + 15);
         allReasons.push(`✅ Cross-validation: ${crossValidation.summary}`);
-      } else if (crossValidation.overallMatch === "PARTIAL_MATCH") {
-        finalConfidence = Math.max(0, finalConfidence - 10);
-        allWarnings.push(`⚠️ Cross-validation: ${crossValidation.summary}`);
+      } else if (crossValidation.discrepancies.length > 0) {
         allWarnings.push(...crossValidation.discrepancies);
-      } else if (crossValidation.overallMatch === "MISMATCH") {
-        finalConfidence = Math.max(0, finalConfidence - 35);
-        allWarnings.push(`❌ Cross-validation: ${crossValidation.summary}`);
-        allWarnings.push(...crossValidation.discrepancies);
-        if (finalStatus === "APPROVED") finalStatus = "SUSPICIOUS";
       }
     }
 
-    // Apply duplicate detection impact
-    if (duplicateCheck.isDuplicate) {
-      finalConfidence = Math.max(0, finalConfidence - 40);
-      allWarnings.push(...duplicateCheck.reasons);
-      finalStatus = "REJECTED";
-    } else if (duplicateCheck.riskLevel === "MEDIUM") {
-      finalConfidence = Math.max(0, finalConfidence - 15);
-      allWarnings.push(...duplicateCheck.reasons);
-      if (finalStatus === "APPROVED") finalStatus = "SUSPICIOUS";
-    } else if (duplicateCheck.riskLevel === "LOW") {
-      allWarnings.push(...duplicateCheck.reasons);
-    }
-
-    // Apply date/amount validation penalties
-    finalConfidence = Math.max(0, finalConfidence - dateValidation.penaltyScore);
-    finalConfidence = Math.max(0, finalConfidence - amountValidation.penaltyScore);
-    allWarnings.push(...dateValidation.warnings);
-    allWarnings.push(...amountValidation.warnings);
-
-    // Recalculate status based on final confidence
-    if (finalConfidence >= 75 && finalStatus !== "REJECTED") {
-      finalStatus = "APPROVED";
-    } else if (finalConfidence >= 40 && finalStatus !== "REJECTED") {
-      finalStatus = "SUSPICIOUS";
-    } else if (finalConfidence < 40) {
-      finalStatus = "REJECTED";
-    }
+    // Add risk assessment summary
+    allReasons.push(riskAssessment.summary);
 
     // Generate unique receipt signature hash for database duplicate checking
     const receiptHash = generateReceiptHash(
@@ -282,8 +236,8 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       aiResult.date
     );
 
-    // Step 8: Save to database
-    logger.info("💾 Step 8: Saving verification result...");
+    // Step 7: Save to database
+    logger.info("💾 Step 7: Saving verification result...");
     const verification = await db.verification.create({
       data: {
         userId,
@@ -310,6 +264,10 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
         crossValidation: crossValidation
           ? JSON.parse(JSON.stringify(crossValidation))
           : undefined,
+        domainValidation: domainValidation
+          ? JSON.parse(JSON.stringify(domainValidation))
+          : undefined,
+        riskAssessment: JSON.parse(JSON.stringify(riskAssessment)),
         isDuplicate: duplicateCheck.isDuplicate,
         duplicateOf: duplicateCheck.duplicateOf,
         receiptHash,
@@ -371,6 +329,23 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
               summary: crossValidation.summary,
             }
           : null,
+        domainValidation: domainValidation
+          ? {
+              isTrusted: domainValidation.isTrusted,
+              isHttps: domainValidation.isHttps,
+              isShortened: domainValidation.isShortened,
+              hasBankMismatch: domainValidation.hasBankMismatch,
+              matchedProvider: domainValidation.matchedProvider,
+              hostname: domainValidation.hostname,
+              warnings: domainValidation.warnings,
+            }
+          : null,
+        riskAssessment: {
+          totalScore: riskAssessment.totalScore,
+          verdict: riskAssessment.verdict,
+          checks: riskAssessment.checks,
+          summary: riskAssessment.summary,
+        },
         isDuplicate: duplicateCheck.isDuplicate,
         duplicateRiskLevel: duplicateCheck.riskLevel,
         processingTimeMs: elapsed,
