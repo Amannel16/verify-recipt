@@ -5,6 +5,6 @@ import { upload } from "@/src/utils/helper/multer.js";
 
 const subscriptionRoutes = Router();
 
-subscriptionRoutes.post("/upgrade", authMiddleware,upload("subscription").single("recrecieptImage"), upgradePlan);
+subscriptionRoutes.post("/upgrade", authMiddleware,upload("subscription").single("recieptImage"), upgradePlan);
 
 export default subscriptionRoutes;
