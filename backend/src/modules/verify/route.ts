@@ -1,6 +1,5 @@
 import { Router } from "express";
 import authMiddleware from "@/src/middlewares/authenticator.js";
-import { receiptUpload } from "@/src/config/multer.js";
 import {
   verifyReceipt,
   getHistory,
@@ -8,6 +7,7 @@ import {
   deleteVerification,
   getStats,
 } from "./controller.js";
+import { upload } from "@/src/utils/helper/multer.js";
 
 const verifyRoutes = Router();
 
@@ -15,7 +15,7 @@ const verifyRoutes = Router();
 verifyRoutes.post(
   "/receipt",
   authMiddleware,
-  receiptUpload.single("receipt"),
+  upload('receipts').single("receipt"),
   verifyReceipt,
 );
 

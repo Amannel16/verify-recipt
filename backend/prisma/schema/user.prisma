@@ -15,6 +15,6 @@ model User {
   updatedAt           DateTime       @updatedAt
 
   verifications       Verification[]
-
+payments            Payment[]
   @@map("users")
 }

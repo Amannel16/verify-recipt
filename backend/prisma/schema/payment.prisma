@@ -1,0 +1,19 @@
+model Payment {
+  id        String   @id @default(uuid())
+  userId      String
+  user User @relation(fields: [userId], references: [id])
+  receiptUrl String?
+  recieptImage String?
+  plan Plan @default(PRO)
+  status  PaymentStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("payments")
+}
+
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

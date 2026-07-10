@@ -4,7 +4,7 @@ import { Plan } from "@prisma/client";
 
 
 
-export async function upgradePlanService(userId:string, plan:Plan) {
+export async function upgradePlanService(userId:string, plan:Plan,receiptImage:string,receiptUrl:string) {
       const validPlans = ["FREE", "PRO", "ENTERPRISE"];
 
         if (!plan || !validPlans.includes(plan.toUpperCase())) {
@@ -12,6 +12,6 @@ export async function upgradePlanService(userId:string, plan:Plan) {
            
         }
 
-       return await upgradePlanRepository(userId,plan);
+       return await upgradePlanRepository(userId,plan,receiptImage,receiptUrl);
 
 }

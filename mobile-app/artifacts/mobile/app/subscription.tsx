@@ -92,23 +92,14 @@ export default function SubscriptionScreen() {
     },
   ];
 
-  async function handleUpgrade(plan: Plan) {
-    if (plan === user?.plan) return;
-    if (plan === "free") return;
+  function handleUpgrade(planKey: Plan, price: string) {
+    if (planKey === user?.plan) return;
+    if (planKey === "free") return;
 
-    setLoading(plan);
-    try {
-      await upgradePlan(plan);
-      Alert.alert(
-        "Upgraded!",
-        `Welcome to ${plan.charAt(0).toUpperCase() + plan.slice(1)}! Your account has been upgraded.`,
-        [{ text: "Continue", onPress: () => router.back() }]
-      );
-    } catch {
-      Alert.alert("Upgrade Failed", "Could not process upgrade. Please try again.");
-    } finally {
-      setLoading(null);
-    }
+    router.push({
+      pathname: "/payment/bank-details",
+      params: { plan: planKey, price }
+    } as any);
   }
 
   return (
@@ -200,7 +191,7 @@ export default function SubscriptionScreen() {
                     styles.upgradeBtn,
                     { backgroundColor: isLoading ? plan.color + "80" : plan.color },
                   ]}
-                  onPress={() => handleUpgrade(plan.key)}
+                  onPress={() => handleUpgrade(plan.key, plan.price)}
                   disabled={!!loading}
                 >
                   <Text style={styles.upgradeBtnText}>
