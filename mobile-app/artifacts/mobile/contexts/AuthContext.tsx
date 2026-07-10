@@ -103,6 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const freshUser = normalizeUser(response.data);
         setUser(freshUser);
         await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(freshUser));
+      } else if (response.message && response.message.toLowerCase().includes("token")) {
+        // Token is expired or invalid, clear the session
+        setUser(null);
+        await AsyncStorage.removeItem(SESSION_KEY);
       }
     } catch (e) {
       // Offline or backend unavailable — use cached session

@@ -4,7 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "node -e \"const env = { ...process.env }; if (env.REPLIT_EXPO_DEV_DOMAIN) env.EXPO_PACKAGER_PROXY_URL = 'https://' + env.REPLIT_EXPO_DEV_DOMAIN; if (env.REPLIT_DEV_DOMAIN) { env.EXPO_PUBLIC_DOMAIN = env.REPLIT_DEV_DOMAIN; env.REACT_NATIVE_PACKAGER_HOSTNAME = env.REPLIT_DEV_DOMAIN; } if (env.REPL_ID) env.EXPO_PUBLIC_REPL_ID = env.REPL_ID; const port = env.PORT || '8081'; const args = ['exec', 'expo', 'start', '--port', port]; if (env.REPL_ID) args.push('--localhost'); const cp = require('child_process'); const res = cp.spawnSync('pnpm', args, { stdio: 'inherit', shell: true, env }); if (res.status !== 0) process.exit(res.status || 1);\"",
+    "dev": "node -e \"const env = { ...process.env, EXPO_OFFLINE: '1' }; if (env.REPLIT_EXPO_DEV_DOMAIN) env.EXPO_PACKAGER_PROXY_URL = 'https://' + env.REPLIT_EXPO_DEV_DOMAIN; if (env.REPLIT_DEV_DOMAIN) { env.EXPO_PUBLIC_DOMAIN = env.REPLIT_DEV_DOMAIN; env.REACT_NATIVE_PACKAGER_HOSTNAME = env.REPLIT_DEV_DOMAIN; } if (env.REPL_ID) env.EXPO_PUBLIC_REPL_ID = env.REPL_ID; const port = env.PORT || '8081'; const args = ['exec', 'expo', 'start', '--port', port]; if (env.REPL_ID) args.push('--localhost'); const cp = require('child_process'); const res = cp.spawnSync('pnpm', args, { stdio: 'inherit', shell: true, env }); if (res.status !== 0) process.exit(res.status || 1);\"",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
