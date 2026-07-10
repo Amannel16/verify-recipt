@@ -1,6 +1,6 @@
 import { Router } from "express";
 import authMiddleware from "@/src/middlewares/authenticator.js";
-import { upgradePlan } from "@/src/modules/user/controller.js";
+import { upgradePlan } from "./controller.js";
 
 const subscriptionRoutes = Router();
 

@@ -9,6 +9,7 @@ const appConfig = {
   ACCESS_TOKEN_EXPIRY: process.env.ACCESS_TOKEN_EXPIRY || "1h",
   REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET || "default-refresh-secret",
   REFRESH_TOKEN_EXPIRY: process.env.REFRESH_TOKEN_EXPIRY || "7d",
+  REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",
 
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || "",

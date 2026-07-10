@@ -5,7 +5,6 @@ import {
   login,
   getProfile,
   updateProfile,
-  upgradePlan,
 } from "./controller.js";
 
 const userRoutes = Router();

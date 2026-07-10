@@ -1,0 +1,16 @@
+import SocketCache from '../redis/socket.cache.js';
+import { socketServer } from './index.js';
+
+export const realTimeServiceEmiter = async (
+  userId: string,
+  event: string,
+  data: any,
+) => {
+  const io = socketServer.getIO();
+  const socketCache = new SocketCache();
+  const userSockets = await socketCache.getUserSockets(userId);
+
+  userSockets.forEach((socket) => {
+    io?.to(socket).emit(event, data);
+  });
+};

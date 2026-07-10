@@ -5,11 +5,12 @@ import { db } from "@/src/config/db.js";
 import appConfig from "@/src/config/app_configs.js";
 import { logger } from "@/src/utils/logger/logger.js";
 import type { AuthPayload } from "@/src/middlewares/authenticator.js";
+import catchAsync from "@/src/utils/helper/catch_async.js";
 
 // ─────────────────────────────────────────────────────────────
 // Register
 // ─────────────────────────────────────────────────────────────
-export async function register(req: Request, res: Response): Promise<void> {
+export const register = catchAsync(async (req: Request, res: Response) => {
   try {
     const { firstName, lastName, email, password, businessName, businessType } = req.body;
 
@@ -49,7 +50,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     // Generate token
     const payload: AuthPayload = { userId: user.id, email: user.email };
     const accessToken = jwt.sign(payload, appConfig.ACCESS_TOKEN_SECRET, {
-      expiresIn: appConfig.ACCESS_TOKEN_EXPIRY,
+      expiresIn: appConfig.ACCESS_TOKEN_EXPIRY as jwt.SignOptions["expiresIn"],
     });
 
     logger.info(`✅ New user registered: ${user.email}`);
@@ -71,7 +72,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       message: "Registration failed. Please try again.",
     });
   }
-}
+});
 
 // ─────────────────────────────────────────────────────────────
 // Login
@@ -109,7 +110,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     // Generate token
     const payload: AuthPayload = { userId: user.id, email: user.email };
     const accessToken = jwt.sign(payload, appConfig.ACCESS_TOKEN_SECRET, {
-      expiresIn: appConfig.ACCESS_TOKEN_EXPIRY,
+      expiresIn: appConfig.ACCESS_TOKEN_EXPIRY as jwt.SignOptions["expiresIn"],
     });
 
     logger.info(`🔐 User logged in: ${user.email}`);
@@ -197,50 +198,4 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Upgrade Plan
-// ─────────────────────────────────────────────────────────────
-export async function upgradePlan(req: Request, res: Response): Promise<void> {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      res.status(401).json({ success: false, message: "Unauthorized" });
-      return;
-    }
 
-    const { plan } = req.body;
-    const validPlans = ["FREE", "PRO", "ENTERPRISE"];
-
-    if (!plan || !validPlans.includes(plan.toUpperCase())) {
-      res.status(400).json({
-        success: false,
-        message: "Invalid plan. Choose FREE, PRO, or ENTERPRISE.",
-      });
-      return;
-    }
-
-    const limits: Record<string, number> = {
-      FREE: 20,
-      PRO: 999999,
-      ENTERPRISE: 999999,
-    };
-
-    const user = await db.user.update({
-      where: { id: userId },
-      data: {
-        plan: plan.toUpperCase(),
-        verificationsLimit: limits[plan.toUpperCase()] ?? 20,
-      },
-    });
-
-    const { password: _, ...safeUser } = user;
-    res.json({
-      success: true,
-      message: `Plan upgraded to ${plan.toUpperCase()}.`,
-      data: { user: safeUser },
-    });
-  } catch (error) {
-    logger.error("Plan upgrade failed:", error);
-    res.status(500).json({ success: false, message: "Failed to upgrade plan." });
-  }
-}
