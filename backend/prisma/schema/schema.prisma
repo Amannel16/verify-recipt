@@ -1,0 +1,19 @@
+// Prisma Schema for PayVerify AI
+// Ethiopian Bank Receipt Verification System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+

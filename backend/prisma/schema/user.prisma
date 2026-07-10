@@ -1,0 +1,20 @@
+
+model User {
+  id                  String         @id @default(uuid())
+  firstName           String
+  lastName            String
+  email               String         @unique
+  password            String
+  phoneNumber         String?
+  businessName        String?
+  businessType        String         @default("Other")
+  plan                Plan           @default(FREE)
+  verificationsUsed   Int            @default(0)
+  verificationsLimit  Int            @default(20)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  verifications       Verification[]
+
+  @@map("users")
+}
