@@ -97,6 +97,35 @@ export default function DashboardScreen() {
       </LinearGradient>
 
       <View style={styles.body}>
+        {/* Renewal Reminder Card */}
+        {user?.plan && user.plan !== "free" && (
+          <View style={[styles.reminderCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.reminderHeader}>
+              <Ionicons name="time-outline" size={18} color={colors.primary} />
+              <Text style={[styles.reminderTitle, { color: colors.foreground }]}>Renewal Reminder</Text>
+              <View style={[styles.activePill, { backgroundColor: colors.success + "15" }]}>
+                <Text style={[styles.activePillText, { color: colors.success }]}>Active</Text>
+              </View>
+            </View>
+            <Text style={[styles.reminderText, { color: colors.mutedForeground }]}>
+              Your subscription is active and will renew on{" "}
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>Aug 11, 2026</Text>.
+            </Text>
+            <View style={styles.reminderDetails}>
+              <Text style={[styles.reminderDetailLabel, { color: colors.mutedForeground }]}>ACTIVE PLAN</Text>
+              <Text style={[styles.reminderDetailVal, { color: colors.foreground }]}>
+                {user.plan === "pro" ? "Pro Merchant" : "Enterprise Suite"}
+              </Text>
+            </View>
+            <View style={styles.reminderDetails}>
+              <Text style={[styles.reminderDetailLabel, { color: colors.mutedForeground }]}>RENEWAL RATE</Text>
+              <Text style={[styles.reminderDetailVal, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                {user.plan === "pro" ? "1,500 Birr / mo" : "50,000 Birr / yr"}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Stats */}
         <View style={styles.statsGrid}>
           <View style={styles.statsRow}>
@@ -248,4 +277,53 @@ const styles = StyleSheet.create({
     borderRadius: 16, borderWidth: 1, borderStyle: "dashed",
   },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
+  reminderCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  reminderHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  reminderTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  activePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: "auto",
+  },
+  activePillText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    textTransform: "uppercase",
+  },
+  reminderText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
+  reminderDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    paddingTop: 8,
+    marginTop: -2,
+  },
+  reminderDetailLabel: {
+    fontSize: 9,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.5,
+  },
+  reminderDetailVal: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+  },
 });
