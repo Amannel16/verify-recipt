@@ -156,7 +156,53 @@ export default function ProfileScreen() {
         <MenuItem
           icon="card-outline"
           label="Payment History"
-          onPress={() => Alert.alert("Payment History", "No payment history yet.")}
+          onPress={() => router.push("/payment/history")}
+        />
+      </View>
+
+      {/* Developer Options */}
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Developer</Text>
+      <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <MenuItem
+          icon="code-working-outline"
+          label="API Integration (Keys)"
+          onPress={() => {
+            if (user?.plan === "enterprise") {
+              Alert.alert(
+                "PayVerify Developer API",
+                "Your Active API Key:\npv_live_67aefc88e99ab1d8213bc0d74f2b\n\nWebhook Status: Active",
+                [
+                  { text: "Copy Key", onPress: () => Alert.alert("Copied", "API key copied to clipboard.") },
+                  { text: "Regenerate", style: "destructive", onPress: () => Alert.alert("Success", "New API key generated.") },
+                  { text: "Close", style: "cancel" }
+                ]
+              );
+            } else {
+              Alert.alert(
+                "Enterprise Feature",
+                "Developer API access and real-time webhook routing are locked on your current plan. Upgrade to Enterprise to integrate PayVerify directly into your custom systems.",
+                [
+                  { text: "Upgrade Plan", onPress: () => router.push("/subscription") },
+                  { text: "Cancel", style: "cancel" }
+                ]
+              );
+            }
+          }}
+        />
+      </View>
+
+      {/* Enterprise Tools */}
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Enterprise Tools</Text>
+      <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <MenuItem
+          icon="business-outline"
+          label="Branch Management"
+          onPress={() => router.push("/enterprise/branches")}
+        />
+        <MenuItem
+          icon="receipt-outline"
+          label="Audit Logs"
+          onPress={() => router.push("/enterprise/audit-logs")}
         />
       </View>
 
@@ -196,10 +242,37 @@ export default function ProfileScreen() {
       {/* Support */}
       <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Support</Text>
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {user?.plan === "enterprise" && (
+          <MenuItem
+            icon="call-outline"
+            iconColor={colors.warning}
+            label="Dedicated Manager"
+            value="Abebe K."
+            onPress={() => Alert.alert(
+              "Dedicated Account Manager",
+              "Your Dedicated Account Manager:\n\nName: Abebe Kebede\nDirect Support: +251 911 234 567\nEmail: abebe@payverify.ai",
+              [{ text: "OK" }]
+            )}
+          />
+        )}
         <MenuItem
           icon="help-circle-outline"
           label="Help Center"
-          onPress={() => Alert.alert("Help Center", "Our support team is available 24/7 at support@payverify.ai")}
+          onPress={() => {
+            if (user?.plan === "free") {
+              Alert.alert(
+                "Help Center Support",
+                "Standard Email Support:\nEmail: support@payverify.ai\nAverage response time: 48 hours",
+                [{ text: "OK" }]
+              );
+            } else {
+              Alert.alert(
+                "Priority VIP Support Line",
+                "Priority Fast-track Support:\nDirect Line: +251 911 000 111\nEmail: priority@payverify.ai\nAverage response time: < 1 hour",
+                [{ text: "OK" }]
+              );
+            }
+          }}
         />
         <MenuItem
           icon="chatbubble-outline"
