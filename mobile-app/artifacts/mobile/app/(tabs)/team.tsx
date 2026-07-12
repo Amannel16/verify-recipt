@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
@@ -49,6 +50,7 @@ const ROLE_PERMS: Record<Role, string[]> = {
 export default function TeamScreen() {
   const colors = useColors();
   const { user } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -102,7 +104,20 @@ export default function TeamScreen() {
         {user?.plan !== "free" && (
           <TouchableOpacity
             style={[styles.inviteBtn, { backgroundColor: colors.primary }]}
-            onPress={() => setShowInvite(true)}
+            onPress={() => {
+              if (user?.plan === "pro" && allMembers.length >= 10) {
+                Alert.alert(
+                  "Limit Reached",
+                  "The Pro plan is limited to 10 team members (including the owner). Upgrade to Enterprise for unlimited team members.",
+                  [
+                    { text: "Upgrade", onPress: () => router.push("/subscription") },
+                    { text: "Cancel", style: "cancel" },
+                  ]
+                );
+                return;
+              }
+              setShowInvite(true);
+            }}
           >
             <Ionicons name="person-add-outline" size={18} color="#FFFFFF" />
             <Text style={styles.inviteBtnText}>Invite</Text>
