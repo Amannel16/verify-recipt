@@ -45,15 +45,29 @@ export default function BankDetailsScreen() {
         </View>
 
         <View style={styles.bankCards}>
+          {/* CBE */}
           <View style={[styles.bankCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.bankName, { color: colors.foreground }]}>Commercial Bank of Ethiopia</Text>
+            <Text style={[styles.bankName, { color: colors.foreground }]}>Commercial Bank of Ethiopia (CBE)</Text>
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Account Name:</Text>
-              <Text style={[styles.value, { color: colors.foreground }]}>CB Project Tech LLC</Text>
+              <Text style={[styles.value, { color: colors.foreground }]}>PayVerify AI Solutions</Text>
             </View>
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Account Number:</Text>
-              <Text style={[styles.value, { color: colors.foreground }]}>1000123456789</Text>
+              <Text style={[styles.value, { color: colors.foreground }]}>1000598765432</Text>
+            </View>
+          </View>
+
+          {/* Telebirr */}
+          <View style={[styles.bankCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.bankName, { color: colors.foreground }]}>Telebirr Merchant Payment</Text>
+            <View style={styles.row}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>Merchant Name:</Text>
+              <Text style={[styles.value, { color: colors.foreground }]}>PayVerify AI</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>Merchant ID:</Text>
+              <Text style={[styles.value, { color: colors.foreground }]}>887965</Text>
             </View>
           </View>
         </View>

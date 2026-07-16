@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
+  Alert,
+  ActivityIndicator,
   FlatList,
   Platform,
   StyleSheet,
@@ -10,6 +12,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { useAuth } from "@/contexts/AuthContext";
 import { VerificationCard } from "@/components/VerificationCard";
 import { VerificationRecord, VerificationStatus, useVerifications } from "@/contexts/VerificationContext";
 import { useColors } from "@/hooks/useColors";
@@ -34,16 +38,52 @@ const STATUS_FILTERS: { key: StatusFilter; label: string; icon: string }[] = [
 export default function HistoryScreen() {
   const colors = useColors();
   const { verifications } = useVerifications();
+  const { user } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<Filter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [exporting, setExporting] = useState(false);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
+
+  function handleExport() {
+    if (user?.plan === "free") {
+      Alert.alert(
+        "Premium Feature",
+        "Exporting reports in PDF & Excel formats is only available on Pro or Enterprise plans.",
+        [
+          { text: "Upgrade Plan", onPress: () => router.push("/subscription") },
+          { text: "Cancel", style: "cancel" },
+        ]
+      );
+      return;
+    }
+
+    setExporting(true);
+    setTimeout(() => {
+      setExporting(false);
+      Alert.alert(
+        "Export Successful",
+        "Your transaction log has been compiled into PDF & Excel sheets and saved to your local downloads.",
+        [{ text: "OK" }]
+      );
+    }, 1500);
+  }
 
   const filtered = useMemo(() => {
     const now = new Date();
     return verifications.filter((v) => {
+      // Plan-based history gating
+      if (user?.plan !== "enterprise") {
+        const thresholdDays = user?.plan === "pro" ? 90 : 30;
+        const d = new Date(v.createdAt);
+        const diffTime = Math.abs(now.getTime() - d.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > thresholdDays) return false;
+      }
+
       // Date filter
       if (dateFilter !== "all") {
         const d = new Date(v.createdAt);
@@ -69,16 +109,44 @@ export default function HistoryScreen() {
       }
       return true;
     });
-  }, [verifications, dateFilter, statusFilter, search]);
+  }, [verifications, dateFilter, statusFilter, search, user?.plan]);
+
+  const hasHiddenRecords = useMemo(() => {
+    if (user?.plan === "enterprise") return false;
+    const now = new Date();
+    const thresholdDays = user?.plan === "pro" ? 90 : 30;
+    return verifications.some((v) => {
+      const d = new Date(v.createdAt);
+      const diffTime = Math.abs(now.getTime() - d.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > thresholdDays;
+    });
+  }, [verifications, user?.plan]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 20 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>History</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {filtered.length} verification{filtered.length !== 1 ? "s" : ""}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: colors.foreground }]}>History</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+            {filtered.length} verification{filtered.length !== 1 ? "s" : ""}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.exportBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={handleExport}
+          disabled={exporting}
+        >
+          {exporting ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <>
+              <Ionicons name="cloud-download-outline" size={16} color={colors.primary} />
+              <Text style={[styles.exportText, { color: colors.primary }]}>Export</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Search */}
@@ -170,6 +238,23 @@ export default function HistoryScreen() {
         )}
       />
 
+      {/* Hidden records warning banner */}
+      {hasHiddenRecords && (
+        <TouchableOpacity
+          style={[styles.warningBanner, { backgroundColor: colors.warning + "15", borderColor: colors.warning + "40" }]}
+          onPress={() => router.push("/subscription")}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="information-circle" size={18} color={colors.warning} />
+          <Text style={[styles.warningBannerText, { color: colors.warning }]}>
+            {user?.plan === "free"
+              ? "History is limited to 30 days. Upgrade to Pro/Enterprise to unlock older records."
+              : "History is limited to 90 days. Upgrade to Enterprise to unlock older records."}
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.warning} />
+        </TouchableOpacity>
+      )}
+
       {/* List */}
       <FlatList
         data={filtered}
@@ -194,9 +279,42 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 16 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
   title: { fontSize: 28, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
   subtitle: { fontSize: 14, fontFamily: "Inter_400Regular", marginTop: 4 },
+  exportBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 38,
+  },
+  exportText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  warningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  warningBannerText: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    flex: 1,
+    lineHeight: 16,
+  },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",

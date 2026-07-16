@@ -20,6 +20,7 @@ import { ConfidenceBar } from "@/components/ConfidenceBar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useVerifications } from "@/contexts/VerificationContext";
 import type { FieldMatch } from "@/contexts/VerificationContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function VerifyDetailScreen() {
@@ -27,6 +28,7 @@ export default function VerifyDetailScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { verifications, deleteVerification } = useVerifications();
   const [imageModalVisible, setImageModalVisible] = useState(false);
 
@@ -71,6 +73,18 @@ export default function VerifyDetailScreen() {
   };
 
   async function handleShare() {
+    if (user?.plan === "free") {
+      Alert.alert(
+        "Premium Feature",
+        "Exporting and sharing detailed PDF reports is only available on Pro or Enterprise plans.",
+        [
+          { text: "Upgrade Plan", onPress: () => router.push("/subscription") },
+          { text: "Cancel", style: "cancel" },
+        ]
+      );
+      return;
+    }
+
     try {
       await Share.share({
         message: `PayVerify AI Report\n\nStatus: ${record.status.toUpperCase()}\nConfidence: ${record.confidence}%\nTransaction: ${record.transactionId}\nAmount: ${record.amount.toLocaleString()} ${record.currency}\nSender: ${record.senderName}\nReceiver: ${record.receiverName}\nDate: ${record.date} ${record.time}${record.crossValidation ? `\n\nCross-Validation: ${record.crossValidation.overallMatch} (${record.crossValidation.crossValidationScore}%)` : ""}`,
@@ -125,10 +139,21 @@ export default function VerifyDetailScreen() {
         <Text style={[styles.heroTitle, { color: statusConfig.color }]}>{statusConfig.headline}</Text>
         <StatusBadge status={record.status} size="lg" />
         {record.isDuplicate && (
-          <View style={[styles.duplicateBadge, { backgroundColor: colors.destructive + "20" }]}>
-            <Ionicons name="copy-outline" size={14} color={colors.destructive} />
-            <Text style={[styles.duplicateText, { color: colors.destructive }]}>Duplicate Receipt Detected</Text>
-          </View>
+          user?.plan === "free" ? (
+            <TouchableOpacity
+              style={[styles.duplicateBadge, { backgroundColor: colors.warning + "15", flexDirection: "row", alignItems: "center", gap: 4 }]}
+              onPress={() => router.push("/subscription")}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="lock-closed-outline" size={12} color={colors.warning} />
+              <Text style={[styles.duplicateText, { color: colors.warning }]}>Duplicate Check (Pro)</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.duplicateBadge, { backgroundColor: colors.destructive + "20" }]}>
+              <Ionicons name="copy-outline" size={14} color={colors.destructive} />
+              <Text style={[styles.duplicateText, { color: colors.destructive }]}>Duplicate Receipt Detected</Text>
+            </View>
+          )
         )}
       </View>
 
@@ -203,88 +228,111 @@ export default function VerifyDetailScreen() {
 
         {/* Cross-Validation Section */}
         {record.crossValidation && (
-          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border, overflow: "hidden" }]}>
             <View style={styles.sectionTitleRow}>
               <View style={[styles.sectionIconBox, { backgroundColor: crossMatchColor(record.crossValidation.overallMatch) + "18" }]}>
                 <MaterialCommunityIcons name="compare-horizontal" size={16} color={crossMatchColor(record.crossValidation.overallMatch)} />
               </View>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Cross-Validation</Text>
-              <View style={[styles.matchBadge, { backgroundColor: crossMatchColor(record.crossValidation.overallMatch) + "20" }]}>
-                <Text style={[styles.matchBadgeText, { color: crossMatchColor(record.crossValidation.overallMatch) }]}>
-                  {record.crossValidation.overallMatch.replace(/_/g, " ")}
-                </Text>
-              </View>
-            </View>
-
-            {/* Score bar */}
-            <View style={styles.crossScoreRow}>
-              <Text style={[styles.crossScoreLabel, { color: colors.mutedForeground }]}>
-                Validation Score
-              </Text>
-              <Text style={[styles.crossScoreValue, { color: crossMatchColor(record.crossValidation.overallMatch) }]}>
-                {record.crossValidation.crossValidationScore}%
-              </Text>
-            </View>
-            <View style={[styles.crossScoreBarBg, { backgroundColor: colors.border }]}>
-              <View
-                style={[
-                  styles.crossScoreBarFill,
-                  {
-                    width: `${record.crossValidation.crossValidationScore}%`,
-                    backgroundColor: crossMatchColor(record.crossValidation.overallMatch),
-                  },
-                ]}
-              />
-            </View>
-
-            {/* Field-by-field comparison */}
-            <Text style={[styles.crossSubtitle, { color: colors.foreground }]}>
-              Field Comparison: AI vs URL
-            </Text>
-            {record.crossValidation.fieldMatches.map((fm: FieldMatch, i: number) => (
-              <View key={i} style={[styles.fieldMatchRow, { borderBottomColor: colors.border }]}>
-                <View style={styles.fieldMatchHeader}>
-                  <Ionicons
-                    name={fm.matches ? "checkmark-circle" : "close-circle"}
-                    size={18}
-                    color={fm.matches ? colors.success : colors.destructive}
-                  />
-                  <Text style={[styles.fieldMatchName, { color: colors.foreground }]}>{fm.field}</Text>
-                  <Text style={[styles.fieldMatchConf, { color: fm.matches ? colors.success : colors.destructive }]}>
-                    {fm.confidence}%
+              {user?.plan !== "free" && (
+                <View style={[styles.matchBadge, { backgroundColor: crossMatchColor(record.crossValidation.overallMatch) + "20" }]}>
+                  <Text style={[styles.matchBadgeText, { color: crossMatchColor(record.crossValidation.overallMatch) }]}>
+                    {record.crossValidation.overallMatch.replace(/_/g, " ")}
                   </Text>
                 </View>
-                <View style={styles.fieldMatchValues}>
-                  <View style={styles.fieldMatchCol}>
-                    <Text style={[styles.fieldMatchLabel, { color: colors.mutedForeground }]}>AI Extracted</Text>
-                    <Text style={[styles.fieldMatchVal, { color: colors.foreground }]}>
-                      {fm.aiValue != null ? String(fm.aiValue) : "—"}
-                    </Text>
-                  </View>
-                  <Ionicons name="swap-horizontal" size={16} color={colors.mutedForeground} style={{ marginTop: 16 }} />
-                  <View style={styles.fieldMatchCol}>
-                    <Text style={[styles.fieldMatchLabel, { color: colors.mutedForeground }]}>URL Verified</Text>
-                    <Text style={[styles.fieldMatchVal, { color: colors.foreground }]}>
-                      {fm.scrapedValue != null ? String(fm.scrapedValue) : "—"}
-                    </Text>
-                  </View>
-                </View>
-                {fm.note && (
-                  <Text style={[styles.fieldMatchNote, { color: colors.mutedForeground }]}>{fm.note}</Text>
-                )}
-              </View>
-            ))}
+              )}
+            </View>
 
-            {/* Discrepancies */}
-            {record.crossValidation.discrepancies.length > 0 && (
-              <View style={[styles.discrepancyBox, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive + "30" }]}>
-                <Ionicons name="alert-circle" size={16} color={colors.destructive} />
-                <View style={styles.discrepancyList}>
-                  {record.crossValidation.discrepancies.map((d, i) => (
-                    <Text key={i} style={[styles.discrepancyText, { color: colors.destructive }]}>{d}</Text>
-                  ))}
+            {user?.plan === "free" ? (
+              <View style={styles.lockOverlayContainer}>
+                <View style={[styles.lockIconBox, { backgroundColor: colors.primary + "15" }]}>
+                  <Ionicons name="lock-closed" size={22} color={colors.primary} />
                 </View>
+                <Text style={[styles.lockTitle, { color: colors.foreground }]}>Advanced AI Cross-Validation</Text>
+                <Text style={[styles.lockSubtitle, { color: colors.mutedForeground }]}>
+                  Real-time bank portal verification and OCR reconciliation is locked on the Free tier.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.lockBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => router.push("/subscription")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.lockBtnText}>Unlock with Pro</Text>
+                </TouchableOpacity>
               </View>
+            ) : (
+              <>
+                {/* Score bar */}
+                <View style={styles.crossScoreRow}>
+                  <Text style={[styles.crossScoreLabel, { color: colors.mutedForeground }]}>
+                    Validation Score
+                  </Text>
+                  <Text style={[styles.crossScoreValue, { color: crossMatchColor(record.crossValidation.overallMatch) }]}>
+                    {record.crossValidation.crossValidationScore}%
+                  </Text>
+                </View>
+                <View style={[styles.crossScoreBarBg, { backgroundColor: colors.border }]}>
+                  <View
+                    style={[
+                      styles.crossScoreBarFill,
+                      {
+                        width: `${record.crossValidation.crossValidationScore}%`,
+                        backgroundColor: crossMatchColor(record.crossValidation.overallMatch),
+                      },
+                    ]}
+                  />
+                </View>
+
+                {/* Field-by-field comparison */}
+                <Text style={[styles.crossSubtitle, { color: colors.foreground }]}>
+                  Field Comparison: AI vs URL
+                </Text>
+                {record.crossValidation.fieldMatches.map((fm: FieldMatch, i: number) => (
+                  <View key={i} style={[styles.fieldMatchRow, { borderBottomColor: colors.border }]}>
+                    <View style={styles.fieldMatchHeader}>
+                      <Ionicons
+                        name={fm.matches ? "checkmark-circle" : "close-circle"}
+                        size={18}
+                        color={fm.matches ? colors.success : colors.destructive}
+                      />
+                      <Text style={[styles.fieldMatchName, { color: colors.foreground }]}>{fm.field}</Text>
+                      <Text style={[styles.fieldMatchConf, { color: fm.matches ? colors.success : colors.destructive }]}>
+                        {fm.confidence}%
+                      </Text>
+                    </View>
+                    <View style={styles.fieldMatchValues}>
+                      <View style={styles.fieldMatchCol}>
+                        <Text style={[styles.fieldMatchLabel, { color: colors.mutedForeground }]}>AI Extracted</Text>
+                        <Text style={[styles.fieldMatchVal, { color: colors.foreground }]}>
+                          {fm.aiValue != null ? String(fm.aiValue) : "—"}
+                        </Text>
+                      </View>
+                      <Ionicons name="swap-horizontal" size={16} color={colors.mutedForeground} style={{ marginTop: 16 }} />
+                      <View style={styles.fieldMatchCol}>
+                        <Text style={[styles.fieldMatchLabel, { color: colors.mutedForeground }]}>URL Verified</Text>
+                        <Text style={[styles.fieldMatchVal, { color: colors.foreground }]}>
+                          {fm.scrapedValue != null ? String(fm.scrapedValue) : "—"}
+                        </Text>
+                      </View>
+                    </View>
+                    {fm.note && (
+                      <Text style={[styles.fieldMatchNote, { color: colors.mutedForeground }]}>{fm.note}</Text>
+                    )}
+                  </View>
+                ))}
+
+                {/* Discrepancies */}
+                {record.crossValidation.discrepancies.length > 0 && (
+                  <View style={[styles.discrepancyBox, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive + "30" }]}>
+                    <Ionicons name="alert-circle" size={16} color={colors.destructive} />
+                    <View style={styles.discrepancyList}>
+                      {record.crossValidation.discrepancies.map((d, i) => (
+                        <Text key={i} style={[styles.discrepancyText, { color: colors.destructive }]}>{d}</Text>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </>
             )}
           </View>
         )}
@@ -466,4 +514,42 @@ const styles = StyleSheet.create({
   warningText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   deleteBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, borderWidth: 1 },
   deleteBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  lockOverlayContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    gap: 8,
+  },
+  lockIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+  lockTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  lockSubtitle: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 16,
+    paddingHorizontal: 12,
+  },
+  lockBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  lockBtnText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
 });
