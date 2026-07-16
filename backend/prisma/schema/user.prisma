@@ -15,6 +15,7 @@ model User {
   updatedAt           DateTime       @updatedAt
 
   verifications       Verification[]
-payments            Payment[]
+  payments            Payment[]
+  notifications       Notification[]
   @@map("users")
 }

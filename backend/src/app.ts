@@ -2,11 +2,14 @@ import express from "express";
 import cors from "cors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createServer } from "node:http";
 import appConfig from "./config/app_configs.js";
 import { logger } from "./utils/logger/logger.js";
+import { socketServer } from "./socket/index.js";
 import userRoutes from "./modules/user/route.js";
 import verifyRoutes from "./modules/verify/route.js";
 import subscriptionRoutes from "./modules/subscription/route.js";
+import notificationRoutes from "./modules/notification/route.js";
 
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -53,6 +56,7 @@ app.get("/api/healthz", (_req, res) => {
 app.use("/api/user", userRoutes);
 app.use("/api/verify", verifyRoutes);
 app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/notification", notificationRoutes);
 
 // ─────────────────────────────────────────────────────────────
 // Error Handling
@@ -104,7 +108,10 @@ app.use(
 // Start Server
 // ─────────────────────────────────────────────────────────────
 
-app.listen(appConfig.PORT, () => {
+const httpServer = createServer(app);
+socketServer.initialize(httpServer);
+
+httpServer.listen(appConfig.PORT, () => {
   logger.info(`
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║

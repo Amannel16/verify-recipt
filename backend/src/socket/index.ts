@@ -8,8 +8,9 @@ import {
   InternalServerError,
   UnauthenticatedError,
 } from "../utils/error/custom_error_handler.js";
-import { parse } from "cookie";
+import * as cookie from "cookie";
 import jwt from "jsonwebtoken";
+import { db } from "../config/db.js";
 
 declare module "socket.io" {
   interface Socket {
@@ -29,7 +30,7 @@ export class SocketServerClass {
     if (this.io) return this.io;
     this.io = new SocketServer(server, {
       cors: {
-        origin: [appConfig.CLIENT_URL, "http://localhost:4000"],
+        origin: [appConfig.CLIENT_URL, "http://localhost:4000", "*"],
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         credentials: true,
       },
@@ -38,40 +39,57 @@ export class SocketServerClass {
       path: "/socket.io",
     });
 
-    this.io.use((socket, next) => {
-      // logger.warn(socket.handshake.headers);
-      const cookieHeader = socket.handshake.headers.cookie;
+    this.io.use(async (socket, next) => {
+      // Try to find access token from handshake auth, authorization headers, or cookies
+      let accessToken = socket.handshake.auth?.token;
 
-      if (!cookieHeader) {
-        logger.warn(`🤔 No cookie found for connection attempt: ${socket.id}`);
-        const err = new Error("Authentication error: No cookie provided.");
-        return next(err);
+      if (!accessToken) {
+        const authHeader = socket.handshake.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+          accessToken = authHeader.split(" ")[1];
+        }
+      }
+
+      if (!accessToken) {
+        const cookieHeader = socket.handshake.headers.cookie;
+        if (cookieHeader) {
+          try {
+            const cookies = cookie.parse(cookieHeader);
+            accessToken = cookies.accessToken;
+          } catch (e) {
+            // Ignore parsing error
+          }
+        }
+      }
+
+      if (!accessToken) {
+        logger.warn(`🤔 No access token found for connection attempt: ${socket.id}`);
+        return next(new Error("Authentication error: Access token missing."));
       }
 
       try {
-        const cookies = parse(cookieHeader);
-        const accessToken = cookies.accessToken;
-
-        if (!accessToken) {
-          logger.warn(
-            `🤔 No access token found in cookies for socket: ${socket.id}`,
-          );
-          return next(new Error("Authentication error: Access token missing."));
-        }
-
         const payload = jwt.verify(
           accessToken,
           appConfig.ACCESS_TOKEN_SECRET!,
         ) as {
-          user: User;
+          userId: string;
+          email: string;
         };
 
-        const user = payload.user;
+        const user = await db.user.findUnique({
+          where: { id: payload.userId },
+        });
+
+        if (!user) {
+          logger.warn(`🤔 Socket user not found in DB: ${payload.userId}`);
+          return next(new Error("Authentication error: User not found."));
+        }
+
         logger.info(
           `✅ Authenticated user for socket ${socket.id}: ${user.firstName} ${user.lastName}`,
         );
 
-        socket.user = user;
+        socket.user = user as any;
 
         next();
       } catch (error) {
@@ -79,7 +97,6 @@ export class SocketServerClass {
           `🚫 JWT verification failed for socket ${socket.id}:`,
           error,
         );
-        // Ensure we pass a standard Error object to next() to avoid serialization issues
         return next(new Error("Authentication error: Invalid token."));
       }
     });

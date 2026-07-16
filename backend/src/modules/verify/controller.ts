@@ -12,6 +12,7 @@ import { decodeQrCode } from "../../utils/helper/qr-decoder.js";
 import { preprocessReceiptImage, cleanupTempImages } from "../../utils/helper/image-preprocessor.js";
 import { validateDomain, type DomainValidationResult } from "./domain-validator.js";
 import { calculateRiskScore, type RiskAssessment } from "./risk-scorer.js";
+import { realTimeServiceEmiter } from "../../socket/service.js";
 
 // ─────────────────────────────────────────────────────────────
 // MAIN: Verify Receipt
@@ -284,6 +285,42 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
     logger.info(
       `✅ Verification complete: ${finalStatus} (${finalConfidence}%) in ${elapsed}ms — ID: ${verification.id}`,
     );
+
+    // Step 8: Create and emit notification
+    try {
+      let notifTitle = "Receipt Processed";
+      let notifType = "INFO";
+      let notifMsg = `Receipt for ${aiResult.amount || 0} ETB has been processed.`;
+
+      if (finalStatus === "APPROVED") {
+        notifTitle = "Receipt Approved";
+        notifType = "SUCCESS";
+        notifMsg = `Receipt from ${aiResult.senderName || "Unknown Sender"} of ${aiResult.amount || 0} ETB was successfully verified.`;
+      } else if (finalStatus === "SUSPICIOUS") {
+        notifTitle = "Suspicious Receipt Detected";
+        notifType = "WARNING";
+        notifMsg = `Receipt for ${aiResult.amount || 0} ETB has been flagged as suspicious: ${riskAssessment.summary}`;
+      } else if (finalStatus === "REJECTED") {
+        notifTitle = "Fraud Alert: Receipt Rejected";
+        notifType = "ALERT";
+        notifMsg = `Receipt of ${aiResult.amount || 0} ETB has been rejected: ${riskAssessment.summary}`;
+      }
+
+      const notification = await db.notification.create({
+        data: {
+          userId,
+          title: notifTitle,
+          message: notifMsg,
+          type: notifType,
+        },
+      });
+
+      // Emit real-time notification
+      await realTimeServiceEmiter(userId, "notification", notification);
+      logger.info(`🔔 Notification created and sent to user: ${userId} for receipt ${verification.id}`);
+    } catch (notifErr) {
+      logger.error("Failed to create or emit notification:", notifErr);
+    }
 
     res.status(201).json({
       success: true,

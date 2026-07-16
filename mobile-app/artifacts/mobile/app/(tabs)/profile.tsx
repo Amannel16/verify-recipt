@@ -121,7 +121,7 @@ export default function ProfileScreen() {
         <MenuItem
           icon="person-outline"
           label="Edit Profile"
-          onPress={() => Alert.alert("Edit Profile", "Profile editing coming soon.")}
+          onPress={() => router.push("/profile/edit")}
         />
         <MenuItem
           icon="business-outline"

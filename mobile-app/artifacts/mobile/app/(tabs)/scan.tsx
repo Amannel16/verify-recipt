@@ -25,6 +25,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVerifications } from "@/contexts/VerificationContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { useColors } from "@/hooks/useColors";
 import { analyzeReceipt } from "@/utils/verificationEngine";
 
@@ -35,6 +36,7 @@ export default function ScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addVerification } = useVerifications();
+  const { addLocalNotification } = useNotifications();
   const { user } = useAuth();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -114,6 +116,28 @@ export default function ScanScreen() {
         ...result,
         createdAt: new Date().toISOString(),
       });
+      
+      // Add local notification for immediate feedback
+      let notifTitle = "Receipt Processed";
+      let notifType = "INFO" as const;
+      let notifMsg = `Receipt for ${result.amount || 0} ETB has been processed.`;
+
+      if (result.status === "approved") {
+        notifTitle = "Receipt Approved";
+        notifType = "SUCCESS" as const;
+        notifMsg = `Receipt from ${result.senderName || "Unknown Sender"} of ${result.amount || 0} ETB was successfully verified.`;
+      } else if (result.status === "suspicious") {
+        notifTitle = "Suspicious Receipt Detected";
+        notifType = "WARNING" as const;
+        notifMsg = `Receipt for ${result.amount || 0} ETB has been flagged as suspicious.`;
+      } else if (result.status === "rejected") {
+        notifTitle = "Fraud Alert: Receipt Rejected";
+        notifType = "ALERT" as const;
+        notifMsg = `Receipt of ${result.amount || 0} ETB has been rejected.`;
+      }
+
+      addLocalNotification(notifTitle, notifMsg, notifType);
+      
       stopAnalysisAnimations();
       Haptics.notificationAsync(
         result.status === "approved"

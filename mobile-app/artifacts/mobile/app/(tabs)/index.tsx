@@ -15,6 +15,7 @@ import { StatCard } from "@/components/StatCard";
 import { VerificationCard } from "@/components/VerificationCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVerifications } from "@/contexts/VerificationContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { useColors } from "@/hooks/useColors";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -23,6 +24,7 @@ export default function DashboardScreen() {
   const colors = useColors();
   const { user } = useAuth();
   const { verifications, getStats } = useVerifications();
+  const { unreadCount } = useNotifications();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const stats = getStats();
@@ -70,8 +72,17 @@ export default function DashboardScreen() {
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={[styles.notifBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => router.push("/notifications")}
+              activeOpacity={0.7}
             >
               <Ionicons name="notifications-outline" size={20} color={colors.foreground} />
+              {unreadCount > 0 && (
+                <View style={[styles.notifBadge, { backgroundColor: colors.destructive }]}>
+                  <Text style={styles.notifBadgeText}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
             <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
               <Text style={styles.avatarText}>{user?.fullName?.[0]?.toUpperCase() ?? "U"}</Text>
@@ -237,6 +248,23 @@ const styles = StyleSheet.create({
   notifBtn: {
     width: 40, height: 40, borderRadius: 12,
     alignItems: "center", justifyContent: "center", borderWidth: 1,
+    position: "relative",
+  },
+  notifBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  notifBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
   },
   avatar: {
     width: 40, height: 40, borderRadius: 12,

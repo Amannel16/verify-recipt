@@ -17,6 +17,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { VerificationProvider } from "@/contexts/VerificationContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 
 if (process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
@@ -38,6 +39,14 @@ function RootLayoutNav() {
       <Stack.Screen
         name="subscription"
         options={{ presentation: "modal", headerShown: false }}
+      />
+      <Stack.Screen
+        name="notifications"
+        options={{ presentation: "modal", headerShown: false }}
+      />
+      <Stack.Screen
+        name="profile/edit"
+        options={{ presentation: "card", headerShown: false }}
       />
     </Stack>
   );
@@ -67,7 +76,9 @@ export default function RootLayout() {
             <KeyboardProvider>
               <AuthProvider>
                 <VerificationProvider>
-                  <RootLayoutNav />
+                  <NotificationProvider>
+                    <RootLayoutNav />
+                  </NotificationProvider>
                 </VerificationProvider>
               </AuthProvider>
             </KeyboardProvider>
