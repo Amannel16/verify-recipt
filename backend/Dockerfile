@@ -44,7 +44,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/eng.traineddata ./eng.traineddata
 
 # Expose the API port
-EXPOSE 6000
+EXPOSE 7001
 
 # Start the application
 CMD ["npm", "start"]

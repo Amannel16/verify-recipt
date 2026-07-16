@@ -8,11 +8,11 @@ services:
     container_name: payverify-backend
     restart: always
     ports:
-      - "6000:6000"
+      - "7001:7001"
     env_file:
       - .env
     environment:
-      - PORT=6000
+      - PORT=7001
       - REDIS_URL=redis://default:checkbirr!162127@redis:6379
     depends_on:
       - redis
