@@ -303,7 +303,7 @@ RESPOND ONLY WITH A JSON OBJECT (no markdown, no code fences), using this exact 
       return { result: null, error: `Gemini Lite failed with status ${response.status}: ${err}` };
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as any;
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
       return { result: null, error: "Empty response from Gemini Lite" };

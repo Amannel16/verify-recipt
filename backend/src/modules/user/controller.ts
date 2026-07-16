@@ -4,7 +4,6 @@ import jwt from "jsonwebtoken";
 import { db } from "@/src/config/db.js";
 import appConfig from "@/src/config/app_configs.js";
 import { logger } from "@/src/utils/logger/logger.js";
-import type { AuthPayload } from "@/src/middlewares/authenticator.js";
 import catchAsync from "@/src/utils/helper/catch_async.js";
 
 // ─────────────────────────────────────────────────────────────
@@ -36,6 +35,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
+    const isFirstAdmin = email.toLowerCase() === "admin@payverify.ai";
     const user = await db.user.create({
       data: {
         firstName,
@@ -44,11 +44,12 @@ export const register = catchAsync(async (req: Request, res: Response) => {
         password: hashedPassword,
         businessName: businessName || "",
         businessType: businessType || "Other",
+        role: req.user.role,
       },
     });
 
     // Generate token
-    const payload: AuthPayload = { userId: user.id, email: user.email };
+    const payload = { userId: user.id, email: user.email };
     const accessToken = jwt.sign(payload, appConfig.ACCESS_TOKEN_SECRET, {
       expiresIn: appConfig.ACCESS_TOKEN_EXPIRY as jwt.SignOptions["expiresIn"],
     });
@@ -108,7 +109,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     }
 
     // Generate token
-    const payload: AuthPayload = { userId: user.id, email: user.email };
+    const payload = { userId: user.id, email: user.email };
     const accessToken = jwt.sign(payload, appConfig.ACCESS_TOKEN_SECRET, {
       expiresIn: appConfig.ACCESS_TOKEN_EXPIRY as jwt.SignOptions["expiresIn"],
     });
@@ -138,7 +139,7 @@ export async function login(req: Request, res: Response): Promise<void> {
 // ─────────────────────────────────────────────────────────────
 export async function getProfile(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ success: false, message: "Unauthorized" });
       return;
@@ -167,7 +168,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
 // ─────────────────────────────────────────────────────────────
 export async function updateProfile(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ success: false, message: "Unauthorized" });
       return;

@@ -33,7 +33,7 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
   let preprocessedImages: any = null;
 
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ success: false, message: "Unauthorized" });
       return;
@@ -88,12 +88,12 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
     if (!receiptUrl) {
       logger.info("📸 Running hybrid QR detection on original image...");
       let qrUrl = await decodeQrCode(preprocessedImages.original);
-      
+
       if (!qrUrl) {
         logger.info("📸 QR not found on original. Trying optimized thresholded variant...");
         qrUrl = await decodeQrCode(preprocessedImages.thresholded);
       }
-      
+
       if (qrUrl) {
         receiptUrl = qrUrl;
         logger.info(`📸 Decoded verification URL from receipt QR Code: ${receiptUrl}`);
@@ -311,34 +311,34 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
         receiptUrl,
         scrapedData: scrapedData
           ? {
-              isValid: scrapedData.isValid,
-              senderName: scrapedData.senderName,
-              receiverName: scrapedData.receiverName,
-              amount: scrapedData.amount,
-              transactionId: scrapedData.transactionId,
-              date: scrapedData.date,
-              status: scrapedData.status,
-            }
+            isValid: scrapedData.isValid,
+            senderName: scrapedData.senderName,
+            receiverName: scrapedData.receiverName,
+            amount: scrapedData.amount,
+            transactionId: scrapedData.transactionId,
+            date: scrapedData.date,
+            status: scrapedData.status,
+          }
           : null,
         crossValidation: crossValidation
           ? {
-              overallMatch: crossValidation.overallMatch,
-              crossValidationScore: crossValidation.crossValidationScore,
-              fieldMatches: crossValidation.fieldMatches,
-              discrepancies: crossValidation.discrepancies,
-              summary: crossValidation.summary,
-            }
+            overallMatch: crossValidation.overallMatch,
+            crossValidationScore: crossValidation.crossValidationScore,
+            fieldMatches: crossValidation.fieldMatches,
+            discrepancies: crossValidation.discrepancies,
+            summary: crossValidation.summary,
+          }
           : null,
         domainValidation: domainValidation
           ? {
-              isTrusted: domainValidation.isTrusted,
-              isHttps: domainValidation.isHttps,
-              isShortened: domainValidation.isShortened,
-              hasBankMismatch: domainValidation.hasBankMismatch,
-              matchedProvider: domainValidation.matchedProvider,
-              hostname: domainValidation.hostname,
-              warnings: domainValidation.warnings,
-            }
+            isTrusted: domainValidation.isTrusted,
+            isHttps: domainValidation.isHttps,
+            isShortened: domainValidation.isShortened,
+            hasBankMismatch: domainValidation.hasBankMismatch,
+            matchedProvider: domainValidation.matchedProvider,
+            hostname: domainValidation.hostname,
+            warnings: domainValidation.warnings,
+          }
           : null,
         riskAssessment: {
           totalScore: riskAssessment.totalScore,
@@ -372,7 +372,7 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
 
 export async function getHistory(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ success: false, message: "Unauthorized" });
       return;
@@ -417,13 +417,13 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
 
 export async function getById(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ success: false, message: "Unauthorized" });
       return;
     }
 
-    const { id } = req.params;
+    const id = req.params.id as string;
     const verification = await db.verification.findFirst({
       where: { id, userId },
     });
@@ -450,13 +450,13 @@ export async function getById(req: Request, res: Response): Promise<void> {
 
 export async function deleteVerification(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ success: false, message: "Unauthorized" });
       return;
     }
 
-    const { id } = req.params;
+    const id = req.params.id as string;
     const verification = await db.verification.findFirst({
       where: { id, userId },
     });
@@ -492,7 +492,7 @@ export async function deleteVerification(req: Request, res: Response): Promise<v
 
 export async function getStats(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ success: false, message: "Unauthorized" });
       return;
