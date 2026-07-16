@@ -1,10 +1,10 @@
 import { Router } from "express";
-import authMiddleware from "@/src/middlewares/authenticator.js";
 import { upgradePlan } from "./controller.js";
 import { upload } from "@/src/utils/helper/multer.js";
+import authMiddleware from "@/src/middlewares/authenticator.js";
 
 const subscriptionRoutes = Router();
 
-subscriptionRoutes.post("/upgrade", authMiddleware,upload("subscription").single("recieptImage"), upgradePlan);
+subscriptionRoutes.post("/upgrade", authMiddleware, upload("subscription").single("recieptImage"), upgradePlan);
 
 export default subscriptionRoutes;

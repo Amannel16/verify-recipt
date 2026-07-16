@@ -17,7 +17,12 @@ export async function decodeQrCode(imagePath: string): Promise<string | null> {
     const Jimp = JimpModule.default || JimpModule;
 
     const jsQRModule = await import("jsqr");
-    const jsQR = jsQRModule.default || jsQRModule;
+    const jsQR = (jsQRModule.default || jsQRModule) as unknown as (
+      data: Uint8ClampedArray,
+      width: number,
+      height: number,
+      providedOptions?: any
+    ) => { data: string } | null;
 
     // Load the image
     const image = await Jimp.read(imagePath);

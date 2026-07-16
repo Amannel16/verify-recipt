@@ -4,7 +4,7 @@ function formatTimestamp(): string {
   return new Date().toISOString();
 }
 
-function log(level: LogLevel, message: string, ...args: unknown[]) {
+function log(level: LogLevel, message: unknown, ...args: unknown[]) {
   const timestamp = formatTimestamp();
   const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
 
@@ -26,8 +26,8 @@ function log(level: LogLevel, message: string, ...args: unknown[]) {
 }
 
 export const logger = {
-  info: (message: string, ...args: unknown[]) => log("info", message, ...args),
-  warn: (message: string, ...args: unknown[]) => log("warn", message, ...args),
-  error: (message: string, ...args: unknown[]) => log("error", message, ...args),
-  debug: (message: string, ...args: unknown[]) => log("debug", message, ...args),
+  info: (message: unknown, ...args: unknown[]) => log("info", message, ...args),
+  warn: (message: unknown, ...args: unknown[]) => log("warn", message, ...args),
+  error: (message: unknown, ...args: unknown[]) => log("error", message, ...args),
+  debug: (message: unknown, ...args: unknown[]) => log("debug", message, ...args),
 };

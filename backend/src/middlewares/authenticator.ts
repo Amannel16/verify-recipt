@@ -1,69 +1,103 @@
-import type { Request, Response, NextFunction } from "express";
+import { UnauthenticatedError } from "@/src/utils/error/custom_error_handler.js";
+import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import appConfig from "@/src/config/app_configs.js";
-import { logger } from "@/src/utils/logger/logger.js";
+import type { SafeUser } from "../utils/helper/auth.js";
+import appConfig from "../config/app_configs.js";
 
-export interface AuthPayload {
-  userId: string;
-  email: string;
-}
-
-// Extend Express Request to include authenticated user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthPayload;
-    }
-  }
-}
-
-/**
- * JWT authentication middleware.
- * Extracts and verifies the Bearer token from the Authorization header.
- */
-export default function authMiddleware(
+const { ACCESS_TOKEN_SECRET } = appConfig;
+export default async function authMiddleware(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction,
-): void {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({
-      success: false,
-      message: "Authentication required. Please provide a valid token.",
-    });
-    return;
-  }
-
-  const token = authHeader.split(" ")[1];
-
-  if (!token) {
-    res.status(401).json({
-      success: false,
-      message: "Invalid authorization format.",
-    });
-    return;
-  }
-
+) {
   try {
-    const decoded = jwt.verify(token, appConfig.ACCESS_TOKEN_SECRET) as AuthPayload;
-    req.user = decoded;
-    next();
+    const accessToken =
+      req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+    if (!accessToken) {
+      throw new UnauthenticatedError(
+        "Please log in to access this resource",
+        "AuthMiddleware",
+      );
+    }
+    try {
+      const accessToken =
+        req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+      if (!accessToken) {
+        throw new UnauthenticatedError(
+          "Please log in to access this resource",
+          "AuthMiddleware",
+        );
+      }
+
+      const token = accessToken;
+      let payload: { user: SafeUser; sessionId?: string };
+      try {
+        payload = jwt.verify(token, ACCESS_TOKEN_SECRET) as {
+          user: SafeUser;
+          sessionId?: string;
+        };
+      } catch (error) {
+        if (error instanceof jwt.TokenExpiredError) {
+          throw new UnauthenticatedError(
+            "Session expired. Please log in again",
+            "AuthMiddleware",
+          );
+        }
+        if (error instanceof jwt.JsonWebTokenError) {
+          throw new UnauthenticatedError(
+            "Invalid token. Please log in again",
+            "AuthMiddleware",
+          );
+        }
+        throw error;
+      }
+
+      const user = payload.user;
+      if (!user) {
+        throw new UnauthenticatedError(
+          "Your session is invalid. Please log in again",
+          "AuthMiddleware",
+        );
+      }
+
+
+
+      req.user = user;
+      return next();
+    } catch (error) {
+      return next(error);
+    }
   } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      logger.warn(`Token expired for request to ${req.path}`);
-      res.status(401).json({
-        success: false,
-        message: "Token expired. Please log in again.",
-      });
-      return;
+    return next(error);
+  }
+}
+
+export async function optAuthMiddleware(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  try {
+    const accessToken =
+      req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+    if (!accessToken) {
+      return next();
     }
 
-    logger.warn(`Invalid token for request to ${req.path}`);
-    res.status(401).json({
-      success: false,
-      message: "Invalid token.",
-    });
+    const token = accessToken;
+
+    const payload = jwt.verify(token, ACCESS_TOKEN_SECRET) as {
+      user: SafeUser;
+    };
+
+    const user = payload.user;
+    if (!user) {
+      return next();
+    }
+
+    req.user = user;
+    return next();
+  } catch {
+    return next();
   }
 }

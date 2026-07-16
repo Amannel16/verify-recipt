@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const appConfig = {
-  PORT: parseInt(process.env.PORT || "6000", 10),
+  PORT: parseInt(process.env.PORT || "7001", 10),
   DATABASE_URL: process.env.DATABASE_URL || "",
 
   ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET || "default-secret",
