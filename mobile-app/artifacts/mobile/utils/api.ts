@@ -2,11 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 // Configure base URL based on platform and environment
-const DEV_BASE_URL = Platform.select({
-  android: "http://10.0.2.2:6000", // Android emulator → localhost
-  ios: "http://localhost:6000",
-  default: "http://localhost:6000",
-});
+const DEV_BASE_URL = "http://217.217.249.150:7001";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEV_BASE_URL;
 
