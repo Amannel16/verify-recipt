@@ -1,6 +1,6 @@
-import SocketCache from '../redis/socket.cache.js';
-import { logger } from '../utils/logger/logger.js';
-import { socketServer } from './index.js';
+import SocketCache from "../redis-client/socket.cache.js";
+import { logger } from "../utils/logger/logger.js";
+import { socketServer } from "./index.js";
 
 export const realTimeServiceEmiter = async (
   userId: string,
@@ -11,7 +11,7 @@ export const realTimeServiceEmiter = async (
   const socketCache = new SocketCache();
   const userSockets = await socketCache.getUserSockets(userId);
 
-  userSockets.forEach((socket) => {
+  userSockets.forEach((socket: string) => {
     io?.to(socket).emit(event, data);
   });
 };

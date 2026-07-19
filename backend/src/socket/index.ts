@@ -1,7 +1,6 @@
 import { Server } from "http";
 import { Server as SocketServer, Socket } from "socket.io";
 import { logger } from "../utils/logger/logger.js";
-import SocketCache from "../redis/socket.cache.js";
 import appConfig from "../config/app_configs.js";
 import { User } from "@prisma/client";
 import {
@@ -11,6 +10,7 @@ import {
 import * as cookie from "cookie";
 import jwt from "jsonwebtoken";
 import { db } from "../config/db.js";
+import SocketCache from "../redis-client/socket.cache.js";
 
 declare module "socket.io" {
   interface Socket {
@@ -63,7 +63,9 @@ export class SocketServerClass {
       }
 
       if (!accessToken) {
-        logger.warn(`🤔 No access token found for connection attempt: ${socket.id}`);
+        logger.warn(
+          `🤔 No access token found for connection attempt: ${socket.id}`,
+        );
         return next(new Error("Authentication error: Access token missing."));
       }
 
