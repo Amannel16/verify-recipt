@@ -1,13 +1,12 @@
 import type { Request, Response } from "express";
 import { db } from "@/src/config/db.js";
-import { logger } from "@/src/utils/logger/logger.js";
 import catchAsync from "@/src/utils/helper/catch_async.js";
 
 // ─────────────────────────────────────────────────────────────
 // Get Notifications (Paginated)
 // ─────────────────────────────────────────────────────────────
 export const getNotifications = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   if (!userId) {
     res.status(401).json({ success: false, message: "Unauthorized" });
     return;
@@ -48,13 +47,13 @@ export const getNotifications = catchAsync(async (req: Request, res: Response) =
 // Mark Notification as Read
 // ─────────────────────────────────────────────────────────────
 export const markAsRead = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   if (!userId) {
     res.status(401).json({ success: false, message: "Unauthorized" });
     return;
   }
 
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   const notification = await db.notification.findFirst({
     where: { id, userId },
@@ -81,7 +80,7 @@ export const markAsRead = catchAsync(async (req: Request, res: Response) => {
 // Mark All Notifications as Read
 // ─────────────────────────────────────────────────────────────
 export const markAllAsRead = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   if (!userId) {
     res.status(401).json({ success: false, message: "Unauthorized" });
     return;
@@ -102,13 +101,13 @@ export const markAllAsRead = catchAsync(async (req: Request, res: Response) => {
 // Delete Notification
 // ─────────────────────────────────────────────────────────────
 export const deleteNotification = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.id;
   if (!userId) {
     res.status(401).json({ success: false, message: "Unauthorized" });
     return;
   }
 
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   const notification = await db.notification.findFirst({
     where: { id, userId },
