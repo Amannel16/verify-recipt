@@ -3,14 +3,32 @@ import path from "node:path";
 import fs from "node:fs";
 import { db } from "@/src/config/db.js";
 import { logger } from "@/src/utils/logger/logger.js";
-import { analyzeReceiptImage, type ReceiptAnalysisResult } from "./ai-engine.js";
-import { scrapeReceiptUrl, type ScrapedReceiptData } from "./receipt-scraper.js";
+import {
+  analyzeReceiptImage,
+  type ReceiptAnalysisResult,
+} from "./ai-engine.js";
+import {
+  scrapeReceiptUrl,
+  type ScrapedReceiptData,
+} from "./receipt-scraper.js";
 import { extractReceiptUrl, detectProviderFromName } from "./url-extractor.js";
-import { crossValidate, type CrossValidationResult } from "./cross-validator.js";
-import { checkForDuplicates, generateReceiptHash } from "./duplicate-detector.js";
+import {
+  crossValidate,
+  type CrossValidationResult,
+} from "./cross-validator.js";
+import {
+  checkForDuplicates,
+  generateReceiptHash,
+} from "./duplicate-detector.js";
 import { decodeQrCode } from "../../utils/helper/qr-decoder.js";
-import { preprocessReceiptImage, cleanupTempImages } from "../../utils/helper/image-preprocessor.js";
-import { validateDomain, type DomainValidationResult } from "./domain-validator.js";
+import {
+  preprocessReceiptImage,
+  cleanupTempImages,
+} from "../../utils/helper/image-preprocessor.js";
+import {
+  validateDomain,
+  type DomainValidationResult,
+} from "./domain-validator.js";
 import { calculateRiskScore, type RiskAssessment } from "./risk-scorer.js";
 import { realTimeServiceEmiter } from "@/src/socket/service.js";
 
@@ -29,7 +47,10 @@ import { realTimeServiceEmiter } from "@/src/socket/service.js";
  * 7. Risk scoring (centralized)
  * 8. Save to database
  */
-export async function verifyReceipt(req: Request, res: Response): Promise<void> {
+export async function verifyReceipt(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const startTime = Date.now();
   let preprocessedImages: any = null;
 
@@ -47,10 +68,14 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    if (user.plan === "FREE" && user.verificationsUsed >= user.verificationsLimit) {
+    if (
+      user.plan === "FREE" &&
+      user.verificationsUsed >= user.verificationsLimit
+    ) {
       res.status(403).json({
         success: false,
-        message: "Verification limit reached. Upgrade to Pro for unlimited verifications.",
+        message:
+          "Verification limit reached. Upgrade to Pro for unlimited verifications.",
       });
       return;
     }
@@ -60,7 +85,8 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
     if (!file) {
       res.status(400).json({
         success: false,
-        message: "No receipt image uploaded. Please upload a JPEG, PNG, or WebP image.",
+        message:
+          "No receipt image uploaded. Please upload a JPEG, PNG, or WebP image.",
       });
       return;
     }
@@ -68,7 +94,9 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
     const imagePath = file.path;
     const imageUrl = `/uploads/${file.filename}`;
 
-    logger.info(`📷 Receipt uploaded: ${file.filename} (${Math.round(file.size / 1024)}KB)`);
+    logger.info(
+      `📷 Receipt uploaded: ${file.filename} (${Math.round(file.size / 1024)}KB)`,
+    );
 
     // Step 1.5: Image Preprocessing (Sharp)
     logger.info("🖼️ Step 1.5: Preprocessing uploaded image...");
@@ -76,7 +104,10 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
 
     // Step 2: AI-powered receipt analysis (with multi-pass OCR & dual routing)
     logger.info("🤖 Step 2: Running AI extraction...");
-    const aiResult: ReceiptAnalysisResult = await analyzeReceiptImage(imagePath, preprocessedImages);
+    const aiResult: ReceiptAnalysisResult = await analyzeReceiptImage(
+      imagePath,
+      preprocessedImages,
+    );
 
     // Step 3: URL detection (QR Code & text extraction)
     logger.info("🔗 Step 3: Detecting receipt URL...");
@@ -91,13 +122,17 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       let qrUrl = await decodeQrCode(preprocessedImages.original);
 
       if (!qrUrl) {
-        logger.info("📸 QR not found on original. Trying optimized thresholded variant...");
+        logger.info(
+          "📸 QR not found on original. Trying optimized thresholded variant...",
+        );
         qrUrl = await decodeQrCode(preprocessedImages.thresholded);
       }
 
       if (qrUrl) {
         receiptUrl = qrUrl;
-        logger.info(`📸 Decoded verification URL from receipt QR Code: ${receiptUrl}`);
+        logger.info(
+          `📸 Decoded verification URL from receipt QR Code: ${receiptUrl}`,
+        );
       }
     }
 
@@ -121,7 +156,8 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       logger.info(`🔒 Step 3.5: Validating domain for URL: ${receiptUrl}`);
 
       // Detect the bank provider from AI extraction
-      const detectedBank = detectProviderFromName(aiResult.paymentMethod || "") || null;
+      const detectedBank =
+        detectProviderFromName(aiResult.paymentMethod || "") || null;
       domainValidation = validateDomain(receiptUrl, detectedBank);
 
       if (domainValidation.isTrusted && !domainValidation.hasBankMismatch) {
@@ -129,7 +165,8 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
         logger.info(`✅ Domain trusted. Proceeding to scrape: ${receiptUrl}`);
 
         try {
-          const provider = domainValidation.matchedProvider || detectedBank || "unknown";
+          const provider =
+            domainValidation.matchedProvider || detectedBank || "unknown";
           const receiptId = aiResult.transactionId || "";
 
           scrapedData = await scrapeReceiptUrl(receiptUrl, provider, receiptId);
@@ -139,15 +176,20 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
             logger.info("🔄 Step 4: Running cross-validation...");
             crossValidation = crossValidate(aiResult, scrapedData);
           } else {
-            logger.warn("⚠️ URL scraping returned invalid data — skipping cross-validation");
+            logger.warn(
+              "⚠️ URL scraping returned invalid data — skipping cross-validation",
+            );
           }
         } catch (error) {
           logger.error("URL scraping failed:", error);
         }
-      } else if (domainValidation.isTrusted && domainValidation.hasBankMismatch) {
+      } else if (
+        domainValidation.isTrusted &&
+        domainValidation.hasBankMismatch
+      ) {
         // ⚠️ Domain is trusted but belongs to a different bank — scrape with caution
         logger.warn(
-          `⚠️ Domain is trusted but bank mismatch detected. OCR: "${detectedBank}", URL: "${domainValidation.matchedProvider}". Scraping with caution.`
+          `⚠️ Domain is trusted but bank mismatch detected. OCR: "${detectedBank}", URL: "${domainValidation.matchedProvider}". Scraping with caution.`,
         );
 
         try {
@@ -157,7 +199,9 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
           scrapedData = await scrapeReceiptUrl(receiptUrl, provider, receiptId);
 
           if (scrapedData && scrapedData.isValid) {
-            logger.info("🔄 Step 4: Running cross-validation (bank mismatch context)...");
+            logger.info(
+              "🔄 Step 4: Running cross-validation (bank mismatch context)...",
+            );
             crossValidation = crossValidate(aiResult, scrapedData);
           }
         } catch (error) {
@@ -167,7 +211,7 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
         // 🚫 Domain is NOT trusted — DO NOT scrape
         logger.warn(
           `🚫 SECURITY: Refusing to scrape untrusted domain "${domainValidation.hostname}". ` +
-          `This URL will NOT be followed. Penalties applied.`
+            `This URL will NOT be followed. Penalties applied.`,
         );
         // scrapedData and crossValidation remain null — the risk scorer will apply penalties
       }
@@ -234,7 +278,7 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
       aiResult.amount,
       aiResult.senderName,
       aiResult.receiverName,
-      aiResult.date
+      aiResult.date,
     );
 
     // Step 7: Save to database
@@ -261,7 +305,9 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
         warnings: allWarnings,
         imageUrl,
         receiptUrl,
-        scrapedData: scrapedData ? JSON.parse(JSON.stringify(scrapedData)) : undefined,
+        scrapedData: scrapedData
+          ? JSON.parse(JSON.stringify(scrapedData))
+          : undefined,
         crossValidation: crossValidation
           ? JSON.parse(JSON.stringify(crossValidation))
           : undefined,
@@ -317,7 +363,9 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
 
       // Emit real-time notification
       await realTimeServiceEmiter(userId, "notification", notification);
-      logger.info(`🔔 Notification created and sent to user: ${userId} for receipt ${verification.id}`);
+      logger.info(
+        `🔔 Notification created and sent to user: ${userId} for receipt ${verification.id}`,
+      );
     } catch (notifErr) {
       logger.error("Failed to create or emit notification:", notifErr);
     }
@@ -348,34 +396,34 @@ export async function verifyReceipt(req: Request, res: Response): Promise<void> 
         receiptUrl,
         scrapedData: scrapedData
           ? {
-            isValid: scrapedData.isValid,
-            senderName: scrapedData.senderName,
-            receiverName: scrapedData.receiverName,
-            amount: scrapedData.amount,
-            transactionId: scrapedData.transactionId,
-            date: scrapedData.date,
-            status: scrapedData.status,
-          }
+              isValid: scrapedData.isValid,
+              senderName: scrapedData.senderName,
+              receiverName: scrapedData.receiverName,
+              amount: scrapedData.amount,
+              transactionId: scrapedData.transactionId,
+              date: scrapedData.date,
+              status: scrapedData.status,
+            }
           : null,
         crossValidation: crossValidation
           ? {
-            overallMatch: crossValidation.overallMatch,
-            crossValidationScore: crossValidation.crossValidationScore,
-            fieldMatches: crossValidation.fieldMatches,
-            discrepancies: crossValidation.discrepancies,
-            summary: crossValidation.summary,
-          }
+              overallMatch: crossValidation.overallMatch,
+              crossValidationScore: crossValidation.crossValidationScore,
+              fieldMatches: crossValidation.fieldMatches,
+              discrepancies: crossValidation.discrepancies,
+              summary: crossValidation.summary,
+            }
           : null,
         domainValidation: domainValidation
           ? {
-            isTrusted: domainValidation.isTrusted,
-            isHttps: domainValidation.isHttps,
-            isShortened: domainValidation.isShortened,
-            hasBankMismatch: domainValidation.hasBankMismatch,
-            matchedProvider: domainValidation.matchedProvider,
-            hostname: domainValidation.hostname,
-            warnings: domainValidation.warnings,
-          }
+              isTrusted: domainValidation.isTrusted,
+              isHttps: domainValidation.isHttps,
+              isShortened: domainValidation.isShortened,
+              hasBankMismatch: domainValidation.hasBankMismatch,
+              matchedProvider: domainValidation.matchedProvider,
+              hostname: domainValidation.hostname,
+              warnings: domainValidation.warnings,
+            }
           : null,
         riskAssessment: {
           totalScore: riskAssessment.totalScore,
@@ -419,6 +467,10 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
 
+    logger.info(
+      `Fetching verification history for user ${userId} (page ${page}, limit ${limit})`,
+    );
+
     const [verifications, total] = await Promise.all([
       db.verification.findMany({
         where: { userId },
@@ -428,6 +480,10 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
       }),
       db.verification.count({ where: { userId } }),
     ]);
+
+    logger.info(
+      `Returned ${verifications.length} verifications for user ${userId}`,
+    );
 
     res.json({
       success: true,
@@ -444,7 +500,9 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
     });
   } catch (error) {
     logger.error("Get history failed:", error);
-    res.status(500).json({ success: false, message: "Failed to retrieve history." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to retrieve history." });
   }
 }
 
@@ -461,14 +519,20 @@ export async function getById(req: Request, res: Response): Promise<void> {
     }
 
     const id = req.params.id as string;
+    logger.info(`Looking up verification ${id} for user ${userId}`);
     const verification = await db.verification.findFirst({
       where: { id, userId },
     });
 
     if (!verification) {
-      res.status(404).json({ success: false, message: "Verification not found." });
+      logger.warn(`Verification ${id} not found for user ${userId}`);
+      res
+        .status(404)
+        .json({ success: false, message: "Verification not found." });
       return;
     }
+
+    logger.info(`Verification ${id} retrieved for user ${userId}`);
 
     res.json({
       success: true,
@@ -477,7 +541,9 @@ export async function getById(req: Request, res: Response): Promise<void> {
     });
   } catch (error) {
     logger.error("Get verification failed:", error);
-    res.status(500).json({ success: false, message: "Failed to retrieve verification." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to retrieve verification." });
   }
 }
 
@@ -485,7 +551,10 @@ export async function getById(req: Request, res: Response): Promise<void> {
 // Delete Verification
 // ─────────────────────────────────────────────────────────────
 
-export async function deleteVerification(req: Request, res: Response): Promise<void> {
+export async function deleteVerification(
+  req: Request,
+  res: Response,
+): Promise<void> {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -494,12 +563,18 @@ export async function deleteVerification(req: Request, res: Response): Promise<v
     }
 
     const id = req.params.id as string;
+    logger.info(`Deleting verification ${id} for user ${userId}`);
     const verification = await db.verification.findFirst({
       where: { id, userId },
     });
 
     if (!verification) {
-      res.status(404).json({ success: false, message: "Verification not found." });
+      logger.warn(
+        `Delete failed: verification ${id} not found for user ${userId}`,
+      );
+      res
+        .status(404)
+        .json({ success: false, message: "Verification not found." });
       return;
     }
 
@@ -513,13 +588,17 @@ export async function deleteVerification(req: Request, res: Response): Promise<v
 
     await db.verification.delete({ where: { id } });
 
+    logger.info(`Verification ${id} deleted for user ${userId}`);
+
     res.json({
       success: true,
       message: "Verification deleted.",
     });
   } catch (error) {
     logger.error("Delete verification failed:", error);
-    res.status(500).json({ success: false, message: "Failed to delete verification." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to delete verification." });
   }
 }
 
@@ -535,13 +614,20 @@ export async function getStats(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const [total, approved, suspicious, rejected, duplicates] = await Promise.all([
-      db.verification.count({ where: { userId } }),
-      db.verification.count({ where: { userId, status: "APPROVED" } }),
-      db.verification.count({ where: { userId, status: "SUSPICIOUS" } }),
-      db.verification.count({ where: { userId, status: "REJECTED" } }),
-      db.verification.count({ where: { userId, isDuplicate: true } }),
-    ]);
+    logger.info(`Fetching verification stats for user ${userId}`);
+
+    const [total, approved, suspicious, rejected, duplicates] =
+      await Promise.all([
+        db.verification.count({ where: { userId } }),
+        db.verification.count({ where: { userId, status: "APPROVED" } }),
+        db.verification.count({ where: { userId, status: "SUSPICIOUS" } }),
+        db.verification.count({ where: { userId, status: "REJECTED" } }),
+        db.verification.count({ where: { userId, isDuplicate: true } }),
+      ]);
+
+    logger.info(
+      `Verification stats retrieved for user ${userId}: total=${total}, approved=${approved}, suspicious=${suspicious}, rejected=${rejected}, duplicates=${duplicates}`,
+    );
 
     res.json({
       success: true,
@@ -557,6 +643,8 @@ export async function getStats(req: Request, res: Response): Promise<void> {
     });
   } catch (error) {
     logger.error("Get stats failed:", error);
-    res.status(500).json({ success: false, message: "Failed to retrieve stats." });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to retrieve stats." });
   }
 }
