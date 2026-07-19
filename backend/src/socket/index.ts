@@ -54,7 +54,7 @@ export class SocketServerClass {
         const cookieHeader = socket.handshake.headers.cookie;
         if (cookieHeader) {
           try {
-            const cookies = cookie.parse(cookieHeader);
+            const cookies = cookie.parseCookie(cookieHeader);
             accessToken = cookies.accessToken;
           } catch (e) {
             // Ignore parsing error

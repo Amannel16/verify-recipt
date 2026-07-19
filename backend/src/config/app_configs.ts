@@ -4,7 +4,7 @@ dotenv.config();
 const appConfig = {
   PORT: parseInt(process.env.PORT || "7001", 10),
   DATABASE_URL: process.env.DATABASE_URL || "",
-
+  CLIENT_URL: process.env.CLIENT_URL || "http://localhost:4000",
   ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET || "default-secret",
   ACCESS_TOKEN_EXPIRY: process.env.ACCESS_TOKEN_EXPIRY || "1h",
   REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET || "default-refresh-secret",

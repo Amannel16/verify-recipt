@@ -12,7 +12,7 @@ import { decodeQrCode } from "../../utils/helper/qr-decoder.js";
 import { preprocessReceiptImage, cleanupTempImages } from "../../utils/helper/image-preprocessor.js";
 import { validateDomain, type DomainValidationResult } from "./domain-validator.js";
 import { calculateRiskScore, type RiskAssessment } from "./risk-scorer.js";
-import { realTimeServiceEmiter } from "../../socket/service.js";
+import { realTimeServiceEmiter } from "@/src/socket/service.js";
 
 // ─────────────────────────────────────────────────────────────
 // MAIN: Verify Receipt
