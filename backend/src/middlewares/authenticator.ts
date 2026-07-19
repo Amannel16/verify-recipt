@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { SafeUser } from "../utils/helper/auth.js";
 import appConfig from "../config/app_configs.js";
+import { logger } from "../utils/logger/logger.js";
 
 const { ACCESS_TOKEN_SECRET } = appConfig;
 export default async function authMiddleware(
@@ -11,9 +12,13 @@ export default async function authMiddleware(
   next: NextFunction,
 ) {
   try {
+    const requestContext = `${req.method} ${req.originalUrl}`;
     const accessToken =
       req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
     if (!accessToken) {
+      logger.warn(
+        `Authentication failed for ${requestContext}: missing access token`,
+      );
       throw new UnauthenticatedError(
         "Please log in to access this resource",
         "AuthMiddleware",
@@ -23,6 +28,9 @@ export default async function authMiddleware(
       const accessToken =
         req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
       if (!accessToken) {
+        logger.warn(
+          `Authentication failed for ${requestContext}: missing access token`,
+        );
         throw new UnauthenticatedError(
           "Please log in to access this resource",
           "AuthMiddleware",
@@ -38,17 +46,24 @@ export default async function authMiddleware(
         };
       } catch (error) {
         if (error instanceof jwt.TokenExpiredError) {
+          logger.warn(
+            `Authentication failed for ${requestContext}: expired token`,
+          );
           throw new UnauthenticatedError(
             "Session expired. Please log in again",
             "AuthMiddleware",
           );
         }
         if (error instanceof jwt.JsonWebTokenError) {
+          logger.warn(
+            `Authentication failed for ${requestContext}: invalid token`,
+          );
           throw new UnauthenticatedError(
             "Invalid token. Please log in again",
             "AuthMiddleware",
           );
         }
+        logger.error(`Authentication failed for ${requestContext}:`, error);
         throw error;
       }
 
@@ -60,9 +75,10 @@ export default async function authMiddleware(
         );
       }
 
-
-
       req.user = user;
+      logger.info(
+        `Authenticated request for user ${user.id} (${user.email}) on ${requestContext}`,
+      );
       return next();
     } catch (error) {
       return next(error);

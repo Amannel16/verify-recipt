@@ -1,47 +1,54 @@
 import type { Request, Response } from "express";
 import { db } from "@/src/config/db.js";
+import { logger } from "@/src/utils/logger/logger.js";
 import catchAsync from "@/src/utils/helper/catch_async.js";
 
 // ─────────────────────────────────────────────────────────────
 // Get Notifications (Paginated)
 // ─────────────────────────────────────────────────────────────
-export const getNotifications = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.id;
-  if (!userId) {
-    res.status(401).json({ success: false, message: "Unauthorized" });
-    return;
-  }
+export const getNotifications = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
 
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-  const skip = (page - 1) * limit;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const skip = (page - 1) * limit;
 
-  const [notifications, total, unreadCount] = await Promise.all([
-    db.notification.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-    }),
-    db.notification.count({ where: { userId } }),
-    db.notification.count({ where: { userId, read: false } }),
-  ]);
+    logger.info(
+      `Fetching notifications for user ${userId} (page ${page}, limit ${limit})`,
+    );
 
-  res.json({
-    success: true,
-    message: "Notifications retrieved.",
-    data: {
-      notifications,
-      unreadCount,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+    const [notifications, total, unreadCount] = await Promise.all([
+      db.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      db.notification.count({ where: { userId } }),
+      db.notification.count({ where: { userId, read: false } }),
+    ]);
+
+    res.json({
+      success: true,
+      message: "Notifications retrieved.",
+      data: {
+        notifications,
+        unreadCount,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
       },
-    },
-  });
-});
+    });
+  },
+);
 
 // ─────────────────────────────────────────────────────────────
 // Mark Notification as Read
@@ -60,7 +67,9 @@ export const markAsRead = catchAsync(async (req: Request, res: Response) => {
   });
 
   if (!notification) {
-    res.status(404).json({ success: false, message: "Notification not found." });
+    res
+      .status(404)
+      .json({ success: false, message: "Notification not found." });
     return;
   }
 
@@ -68,6 +77,8 @@ export const markAsRead = catchAsync(async (req: Request, res: Response) => {
     where: { id },
     data: { read: true },
   });
+
+  logger.info(`Notification ${id} marked as read for user ${userId}`);
 
   res.json({
     success: true,
@@ -82,14 +93,21 @@ export const markAsRead = catchAsync(async (req: Request, res: Response) => {
 export const markAllAsRead = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user?.id;
   if (!userId) {
+    logger.warn(
+      `Mark all notifications as read denied: missing authenticated user`,
+    );
     res.status(401).json({ success: false, message: "Unauthorized" });
     return;
   }
+
+  logger.info(`Marking all notifications as read for user ${userId}`);
 
   await db.notification.updateMany({
     where: { userId, read: false },
     data: { read: true },
   });
+
+  logger.info(`All notifications marked as read for user ${userId}`);
 
   res.json({
     success: true,
@@ -100,30 +118,41 @@ export const markAllAsRead = catchAsync(async (req: Request, res: Response) => {
 // ─────────────────────────────────────────────────────────────
 // Delete Notification
 // ─────────────────────────────────────────────────────────────
-export const deleteNotification = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.id;
-  if (!userId) {
-    res.status(401).json({ success: false, message: "Unauthorized" });
-    return;
-  }
+export const deleteNotification = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
 
-  const id = req.params.id as string;
+    const id = req.params.id as string;
 
-  const notification = await db.notification.findFirst({
-    where: { id, userId },
-  });
+    const notification = await db.notification.findFirst({
+      where: { id, userId },
+    });
 
-  if (!notification) {
-    res.status(404).json({ success: false, message: "Notification not found." });
-    return;
-  }
+    if (!notification) {
+      logger.warn(
+        `Notification deletion failed for user ${userId}: notification ${id} not found`,
+      );
+      res
+        .status(404)
+        .json({ success: false, message: "Notification not found." });
+      return;
+    }
 
-  await db.notification.delete({
-    where: { id },
-  });
+    logger.info(`Deleting notification ${id} for user ${userId}`);
 
-  res.json({
-    success: true,
-    message: "Notification deleted.",
-  });
-});
+    await db.notification.delete({
+      where: { id },
+    });
+
+    logger.info(`Notification ${id} deleted for user ${userId}`);
+
+    res.json({
+      success: true,
+      message: "Notification deleted.",
+    });
+  },
+);

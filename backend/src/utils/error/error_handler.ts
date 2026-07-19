@@ -12,8 +12,8 @@ const errorHandler = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction,
 ): void => {
-  // Log the full error to the console for development and monitoring when external logging (Grafana) is not integrated
-  console.error(`[Error] ${req.method} ${req.path}:`, err);
+  // Log the full error through the shared logger for development and monitoring
+  logger.error(`[Error] ${req.method} ${req.path}:`, err);
 
   if (res.headersSent) {
     logger.error({ message: err.message, stack: err.stack, ip: req.ip });

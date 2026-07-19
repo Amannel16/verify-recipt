@@ -21,6 +21,19 @@ const app = express();
 // Middleware
 // ─────────────────────────────────────────────────────────────
 
+app.use((req, res, next) => {
+  const startTime = Date.now();
+
+  res.on("finish", () => {
+    const duration = Date.now() - startTime;
+    logger.info(
+      `${req.method} ${req.originalUrl} ${res.statusCode} (${duration}ms)`,
+    );
+  });
+
+  next();
+});
+
 app.use(
   cors({
     origin: "*", // In production, restrict to your mobile app domain
