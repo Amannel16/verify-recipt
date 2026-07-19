@@ -15,6 +15,10 @@ const appConfig = {
   TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || "",
 
   UPLOADS_DIR: "uploads",
+
+  LOKI_URL: process.env.LOKI_URL || "",
+  APP_NAME: process.env.APP_NAME || "GebaBackend",
+  NODE_ENV: process.env.NODE_ENV || "development",
 } as const;
 
 export default appConfig;

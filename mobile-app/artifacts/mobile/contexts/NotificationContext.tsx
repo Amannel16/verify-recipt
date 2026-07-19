@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { api } from "@/utils/api";
+import { api, API_BASE_URL } from "@/utils/api";
 import { useAuth } from "./AuthContext";
 import { io, Socket } from "socket.io-client";
 import { Alert } from "react-native";
@@ -149,7 +149,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (!token) return;
 
         // Connect to Socket server
-        const socketUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:6000";
+        const socketUrl = API_BASE_URL;
         const socketConn = io(socketUrl, {
           path: "/socket.io",
           auth: { token },

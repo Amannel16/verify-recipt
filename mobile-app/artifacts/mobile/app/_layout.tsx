@@ -18,9 +18,12 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { VerificationProvider } from "@/contexts/VerificationContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { API_BASE_URL } from "@/utils/api";
 
 if (process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+} else {
+  setBaseUrl(API_BASE_URL);
 }
 
 SplashScreen.preventAutoHideAsync();

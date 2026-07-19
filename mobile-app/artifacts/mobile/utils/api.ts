@@ -1,10 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
 
-// Configure base URL based on platform and environment
-const DEV_BASE_URL = "http://217.217.249.150:7001";
-
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEV_BASE_URL;
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ?? "http://217.217.249.150:7001";
 
 const TOKEN_KEY = "payverify_access_token";
 
@@ -162,5 +159,5 @@ class ApiClient {
   }
 }
 
-export const api = new ApiClient(BASE_URL!);
+export const api = new ApiClient(API_BASE_URL);
 export { TOKEN_KEY };
