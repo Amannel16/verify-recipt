@@ -1,26 +1,34 @@
 model User {
-  id                 String   @id @default(uuid())
-  firstName          String
-  lastName           String
-  email              String   @unique
-  password           String
-  phoneNumber        String?
-  businessName       String?
-  businessType       String   @default("Other")
-  role               ROLE     @default(CUSTOMER)
-  plan               Plan     @default(FREE)
+  id           String       @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String       @unique
+  password     String
+  phoneNumber  String?
+  businessName String?
+  businessType String       @default("Other")
+  role         ROLE         @default(CUSTOMER)
+  plan         Plan         @default(FREE)
+  provider     AuthProvider @default(CREDENTIALS)
+
   verificationsUsed  Int      @default(0)
   verificationsLimit Int      @default(20)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  verifications       Verification[]
-  payments            Payment[]
-  notifications       Notification[]
+  verifications Verification[]
+  payments      Payment[]
+  notifications Notification[]
+
   @@map("users")
 }
 
 enum ROLE {
   ADMIN
   CUSTOMER
+}
+
+enum AuthProvider {
+  CREDENTIALS
+  TELEGRAM
 }

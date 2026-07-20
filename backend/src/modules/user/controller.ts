@@ -44,7 +44,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
         password: hashedPassword,
         businessName: businessName || "",
         businessType: businessType || "Other",
-        role: req.user.role,
+        role: "ADMIN",
       },
     });
 
