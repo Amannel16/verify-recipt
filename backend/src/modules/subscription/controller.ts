@@ -4,8 +4,8 @@
 import catchAsync from "@/src/utils/helper/catch_async.js";
 import { logger } from "@/src/utils/logger/logger.js";
 import type { Request, Response } from "express";
-import { upgradePlanService } from "./service.js";
-import { verifyPlanRepository } from "./repository.js";
+import { getAllPaymentsService, upgradePlanService } from "./service.js";
+import { rejectPaymentRepository, verifyPlanRepository } from "./repository.js";
 import {
   errorResponse,
   successResponse,
@@ -77,4 +77,25 @@ export const upgradePlan = catchAsync(async (req: Request, res: Response) => {
     "Plan upgraded to " + plan.toUpperCase(),
     payment,
   );
+});
+
+export const getAllPayments = catchAsync(async (req: Request, res: Response) => {
+  const payments = await getAllPaymentsService();
+  return successResponse(res, "Payments retrieved successfully", payments);
+});
+
+// ─────────────────────────────────────────────────────────────
+// Verify Payment
+// ─────────────────────────────────────────────────────────────
+export const verifyPayment = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const payment = await verifyPlanRepository(id);
+  return successResponse(res, "Payment verified successfully", payment);
+});
+
+
+export const rejectPayment = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const payment = await rejectPaymentRepository(id);
+  return successResponse(res, "Payment rejected successfully", payment);
 });
