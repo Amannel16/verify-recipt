@@ -49,16 +49,17 @@ export const register = catchAsync(async (req: Request, res: Response) => {
       },
     });
 
+    // Return user (without password)
+    const { password: _, ...safeUser } = user;
+
     // Generate token
-    const payload = { userId: user.id, email: user.email };
+    const payload = { userId: user.id, email: user.email, user: safeUser };
     const accessToken = jwt.sign(payload, appConfig.ACCESS_TOKEN_SECRET, {
       expiresIn: appConfig.ACCESS_TOKEN_EXPIRY as jwt.SignOptions["expiresIn"],
     });
 
     logger.info(`✅ New user registered: ${user.email}`);
 
-    // Return user (without password)
-    const { password: _, ...safeUser } = user;
     res.status(201).json({
       success: true,
       message: "Account created successfully.",
@@ -109,15 +110,16 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    const { password: _, ...safeUser } = user;
+
     // Generate token
-    const payload = { userId: user.id, email: user.email };
+    const payload = { userId: user.id, email: user.email, user: safeUser };
     const accessToken = jwt.sign(payload, appConfig.ACCESS_TOKEN_SECRET, {
       expiresIn: appConfig.ACCESS_TOKEN_EXPIRY as jwt.SignOptions["expiresIn"],
     });
 
     logger.info(`🔐 User logged in: ${user.email}`);
 
-    const { password: _, ...safeUser } = user;
     res.json({
       success: true,
       message: "Login successful.",
