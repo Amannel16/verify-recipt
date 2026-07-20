@@ -5,6 +5,7 @@ import { db } from "@/src/config/db.js";
 import appConfig from "@/src/config/app_configs.js";
 import { logger } from "@/src/utils/logger/logger.js";
 import catchAsync from "@/src/utils/helper/catch_async.js";
+import { ROLE } from "@prisma/client";
 
 // ─────────────────────────────────────────────────────────────
 // Register
@@ -44,7 +45,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
         password: hashedPassword,
         businessName: businessName || "",
         businessType: businessType || "Other",
-        role: "ADMIN",
+        role: ROLE.ADMIN,
       },
     });
 
