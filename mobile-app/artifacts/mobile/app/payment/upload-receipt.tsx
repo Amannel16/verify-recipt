@@ -60,7 +60,11 @@ export default function UploadReceiptScreen() {
       }
 
       if (imageUri) {
-        const uriParts = imageUri.split("/");
+        let cleanUri = decodeURIComponent(imageUri);
+        if (Platform.OS === "android" && !cleanUri.startsWith("file://") && cleanUri.startsWith("file:")) {
+          cleanUri = cleanUri.replace("file:", "file://");
+        }
+        const uriParts = cleanUri.split("/");
         const fileName = uriParts[uriParts.length - 1] || "receipt.jpg";
         const ext = fileName.split(".").pop()?.toLowerCase() || "jpg";
         const mimeTypes: Record<string, string> = {
@@ -70,7 +74,7 @@ export default function UploadReceiptScreen() {
           webp: "image/webp",
         };
         formData.append("recieptImage", {
-          uri: imageUri,
+          uri: cleanUri,
           name: fileName,
           type: mimeTypes[ext] || "image/jpeg",
         } as unknown as Blob);
