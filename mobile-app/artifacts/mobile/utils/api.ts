@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? "http://217.217.249.150:7001";
@@ -14,6 +15,7 @@ export interface ApiResponse<T = unknown> {
 
 class ApiClient {
   private baseUrl: string;
+  public onUnauthorized?: () => void;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
@@ -82,6 +84,9 @@ class ApiClient {
         // Handle 401 — token expired
         if (response.status === 401) {
           await this.clearToken();
+          if (this.onUnauthorized) {
+            this.onUnauthorized();
+          }
         }
         return {
           success: false,
@@ -127,8 +132,14 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const formData = new FormData();
 
+    // Decode and normalize URI
+    let cleanUri = decodeURIComponent(fileUri);
+    if (Platform.OS === "android" && !cleanUri.startsWith("file://") && cleanUri.startsWith("file:")) {
+      cleanUri = cleanUri.replace("file:", "file://");
+    }
+
     // Get filename and type from URI
-    const uriParts = fileUri.split("/");
+    const uriParts = cleanUri.split("/");
     const fileName = uriParts[uriParts.length - 1] ?? "receipt.jpg";
     const ext = fileName.split(".").pop()?.toLowerCase() ?? "jpg";
     const mimeTypes: Record<string, string> = {
@@ -140,7 +151,7 @@ class ApiClient {
     };
 
     formData.append(fieldName, {
-      uri: fileUri,
+      uri: cleanUri,
       name: fileName,
       type: mimeTypes[ext] ?? "image/jpeg",
     } as unknown as Blob);
