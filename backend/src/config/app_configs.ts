@@ -15,7 +15,16 @@ const appConfig = {
   TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || "",
 
   UPLOADS_DIR: "uploads",
-
+  ACCESS_COOKIE_OPTIONS: {
+    httpOnly: true,
+    // For Telegram desktop/webview the auth flow may be treated as cross-site.
+    // In production we need `SameSite=None` and `secure:true` so the browser
+    // accepts cookies in an embedded webview. For local development keep
+    // `SameSite=lax` and `secure=false` to allow non-HTTPS testing.
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
+    maxAge: 54000000, // 15 minutes in milliseconds
+  },
   LOKI_URL: process.env.LOKI_URL || "",
   APP_NAME: process.env.APP_NAME || "GebaBackend",
   NODE_ENV: process.env.NODE_ENV || "development",

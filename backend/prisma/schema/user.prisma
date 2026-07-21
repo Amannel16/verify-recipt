@@ -1,20 +1,23 @@
 model User {
-  id           String       @id @default(uuid())
+  id           String  @id @default(uuid())
   firstName    String
   lastName     String
-  email        String       @unique
+  email        String  @unique
   password     String
   phoneNumber  String?
   businessName String?
-  businessType String       @default("Other")
-  role         ROLE         @default(CUSTOMER)
-  plan         Plan         @default(FREE)
-  provider     AuthProvider @default(CREDENTIALS)
+  photo        String?
+  refreshToken String? @db.Text
 
-  verificationsUsed  Int      @default(0)
-  verificationsLimit Int      @default(20)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  businessType       String       @default("Other")
+  role               ROLE         @default(CUSTOMER)
+  plan               Plan         @default(FREE)
+  provider           AuthProvider @default(CREDENTIALS)
+  providerId         String?      @unique
+  verificationsUsed  Int          @default(0)
+  verificationsLimit Int          @default(20)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   verifications Verification[]
   payments      Payment[]
