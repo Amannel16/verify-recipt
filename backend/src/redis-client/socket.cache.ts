@@ -4,14 +4,10 @@ import redisConnection from './redis.connection.js';
 
 class SocketCache {
   private readonly client: RedisClientType;
+  private static readonly inMemoryCache = new Map<string, Set<string>>();
 
   constructor() {
     this.client = redisConnection.getClient();
-
-    this.client.on('error', (err: Error) =>
-      logger.error(`Redis Client Error: ${JSON.stringify(err)}`),
-    );
-
     this._connectClient();
   }
 
@@ -21,11 +17,13 @@ class SocketCache {
         await this.client.connect();
         logger.info('Redis client connected successfully.');
       } catch (error: unknown) {
-        logger.error(
-          `Failed to connect to Redis: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        // Handled globally in redisConnection
       }
     }
+  }
+
+  private _isRedisAvailable(): boolean {
+    return this.client.isOpen && this.client.isReady;
   }
 
   private _getUserSocketsKey(userId: string): string {
@@ -33,8 +31,16 @@ class SocketCache {
   }
 
   async addUserSocket(userId: string, socketId: string): Promise<void> {
+    if (!this._isRedisAvailable()) {
+      logger.info(`[Fallback] Adding socket ${socketId} for user ${userId} in memory`);
+      if (!SocketCache.inMemoryCache.has(userId)) {
+        SocketCache.inMemoryCache.set(userId, new Set());
+      }
+      SocketCache.inMemoryCache.get(userId)!.add(socketId);
+      return;
+    }
+
     try {
-      await this._connectClient();
       const key = this._getUserSocketsKey(userId);
       await this.client.sAdd(key, socketId);
       await this.client.expire(key, 24 * 60 * 60); // 24 hours
@@ -48,8 +54,19 @@ class SocketCache {
   }
 
   async removeUserSocket(userId: string, socketId: string): Promise<void> {
+    if (!this._isRedisAvailable()) {
+      logger.info(`[Fallback] Removing socket ${socketId} for user ${userId} in memory`);
+      const userSockets = SocketCache.inMemoryCache.get(userId);
+      if (userSockets) {
+        userSockets.delete(socketId);
+        if (userSockets.size === 0) {
+          SocketCache.inMemoryCache.delete(userId);
+        }
+      }
+      return;
+    }
+
     try {
-      await this._connectClient();
       const key = this._getUserSocketsKey(userId);
       await this.client.sRem(key, socketId);
       logger.info(`Socket ${socketId} removed for user ${userId}`);
@@ -66,8 +83,12 @@ class SocketCache {
   }
 
   async getUserSockets(userId: string): Promise<string[]> {
+    if (!this._isRedisAvailable()) {
+      const userSockets = SocketCache.inMemoryCache.get(userId);
+      return userSockets ? Array.from(userSockets) : [];
+    }
+
     try {
-      await this._connectClient();
       const key = this._getUserSocketsKey(userId);
       const socketIds = await this.client.sMembers(key);
       return socketIds || [];
@@ -82,8 +103,11 @@ class SocketCache {
   }
 
   async getOnlineUser(): Promise<Array<string>> {
+    if (!this._isRedisAvailable()) {
+      return Array.from(SocketCache.inMemoryCache.keys());
+    }
+
     try {
-      await this._connectClient();
       const keys = await this.client.keys('userSockets:*');
       return keys.map((key) => key.split(':')[1]);
     } catch (error: unknown) {
