@@ -78,7 +78,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handle unauthorized globally (session expiration)
+    api.onUnauthorized = () => {
+      setUser(null);
+      AsyncStorage.removeItem(SESSION_KEY);
+    };
+
     loadSession();
+
+    return () => {
+      api.onUnauthorized = undefined;
+    };
   }, []);
 
   async function loadSession() {
