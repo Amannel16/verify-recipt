@@ -6,9 +6,23 @@ class RedisClient {
   private client: RedisClientType;
 
   constructor() {
-    logger.warn(appConfig.REDIS_URL);
+    logger.warn(`Connecting to Redis at: ${appConfig.REDIS_URL}`);
     this.client = createClient({
       url: appConfig.REDIS_URL,
+      socket: {
+        reconnectStrategy: (retries) => {
+          if (retries >= 2) {
+            logger.warn('Max Redis connection retries reached. Using in-memory fallback.');
+            return false; // Stop reconnecting
+          }
+          return 1000; // Wait 1 second before retrying
+        }
+      }
+    });
+
+    // Always catch errors to prevent node process from crashing
+    this.client.on('error', (error: Error) => {
+      logger.debug(`Redis client connection error: ${error.message}`);
     });
   }
 
@@ -16,18 +30,11 @@ class RedisClient {
     try {
       await this.client.connect();
       logger.info('Redis connected!');
-      this.cacheError();
     } catch (error: unknown) {
-      logger.error(
-        `Gateway Redis connection error: ${error instanceof Error ? error.message : String(error)}`,
+      logger.warn(
+        `Initial Redis connection failed: ${error instanceof Error ? error.message : String(error)}. Using in-memory fallback.`
       );
     }
-  }
-
-  private cacheError(): void {
-    this.client.on('error', (error: Error) => {
-      logger.error(`Gateway Redis error: ${error.message}`);
-    });
   }
 
   public getClient(): RedisClientType {
