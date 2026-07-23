@@ -20,8 +20,8 @@ services:
     container_name: payverify-redis
     restart: always
     command: redis-server --requirepass checkbirr!162127
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"   # <--- Use 'expose' instead of 'ports' to avoid host port collisions
     volumes:
       - redis_data:/data
 
