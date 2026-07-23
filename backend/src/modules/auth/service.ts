@@ -4,6 +4,7 @@ import { ConflictError, UnauthenticatedError } from "@/src/utils/error/custom_er
 import { TelegramAuthData, TelegramSignupData, verifyTelegramAuth, verifyTelegramWebAppAuth } from "@/src/utils/helper/telegram-auth.js";
 import { logger } from "@/src/utils/logger/logger.js";
 import { createId } from "@paralleldrive/cuid2";
+import { ROLE } from "@prisma/client";
 import jwt from "jsonwebtoken";
 
 
@@ -41,7 +42,59 @@ export async function loginWithTelegram(data: TelegramAuthData & { initData?: st
     });
 
     if (!user) {
-        throw new UnauthenticatedError("User account not found.", "AuthService.loginWithTelegram");
+        // Determine names from Telegram data
+        // first_name is required by Telegram
+        const firstName = data.first_name;
+        const lastName = data.last_name || "";
+        // Telegram doesn't provide email. Using a fake placeholder or handling it is necessary.
+        // For now, using a placeholder email: {id}@telegram.user
+        // OR we could make email optional in schema if logic permits, but User schema likely enforces it.
+        const email = `${data.id}@telegram.user.geba-ai.com`;
+
+        user = await db.user.create({
+            data: {
+                id: createId(),
+                email: email, // Placeholder
+                firstName,
+                lastName,
+                role: ROLE.CUSTOMER,
+                provider: "TELEGRAM",
+                providerId: data.id,
+                password: "password", // Dummy password
+            },
+        });
+
+
+
+        // 3. Issue Tokens
+        const newRefreshToken = jwt.sign(
+            { userId: user.id },
+            appConfig.REFRESH_TOKEN_SECRET!,
+            {
+                expiresIn: appConfig.REFRESH_TOKEN_EXPIRY as jwt.SignOptions["expiresIn"],
+            }
+        );
+
+        await db.user.update({
+            where: { id: user.id },
+            data: {
+                refreshToken: newRefreshToken,
+            },
+            omit: {
+                password: true,
+            },
+        });
+
+        const accessToken = jwt.sign({ user: user }, appConfig.ACCESS_TOKEN_SECRET!, {
+            expiresIn: appConfig.ACCESS_TOKEN_EXPIRY as jwt.SignOptions["expiresIn"],
+        });
+
+        logger.info(`🚀 User signed up with Telegram successfully: ${user.id}`);
+
+        return {
+            accessToken,
+            user,
+        };
     } else {
         // Update photo if changed
         if (data.photo_url && user.photo !== data.photo_url) {
