@@ -10,6 +10,7 @@ import userRoutes from "./modules/user/route.js";
 import verifyRoutes from "./modules/verify/route.js";
 import subscriptionRoutes from "./modules/subscription/route.js";
 import notificationRoutes from "./modules/notification/route.js";
+import authRoutes from "./modules/auth/route.js";
 
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -67,6 +68,7 @@ app.get("/api/healthz", (_req, res) => {
 
 // API routes
 app.use("/api/user", userRoutes);
+app.use("api/auth",authRoutes);
 app.use("/api/verify", verifyRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/notification", notificationRoutes);

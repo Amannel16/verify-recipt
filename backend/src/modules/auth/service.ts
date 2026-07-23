@@ -125,7 +125,7 @@ export async function signupWithTelegram(data: TelegramSignupData & { initData?:
         // Telegram doesn't provide email. Using a fake placeholder or handling it is necessary.
         // For now, using a placeholder email: {id}@telegram.user
         // OR we could make email optional in schema if logic permits, but User schema likely enforces it.
-        const email = `${data.id}@telegram.user.nisir.com`;
+        const email = `${data.id}@telegram.user.geba-ai.com`;
 
         user = await db.user.create({
             data: {
