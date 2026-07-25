@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BusinessType, useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { openTelegramLogin } from "@/utils/telegram";
 
 const BUSINESS_TYPES: BusinessType[] = [
   "Retail", "Restaurant", "E-commerce", "Services", "Healthcare", "Education", "Other",
@@ -23,7 +24,7 @@ const BUSINESS_TYPES: BusinessType[] = [
 export default function SignUpScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, signupWithTelegram } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [fullName, setFullName] = useState("");
@@ -34,6 +35,7 @@ export default function SignUpScreen() {
   const [businessType, setBusinessType] = useState<BusinessType>("Retail");
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isTelegramLoading, setIsTelegramLoading] = useState(false);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -58,6 +60,31 @@ export default function SignUpScreen() {
     setLoading(false);
     if (!result.success) {
       Alert.alert("Sign Up Failed", result.error || "Please try again.");
+    }
+  }
+
+  async function handleTelegramSignup() {
+    if (isTelegramLoading) return;
+    setIsTelegramLoading(true);
+
+    try {
+      const telegramUser = await openTelegramLogin();
+      if (!telegramUser) {
+        setIsTelegramLoading(false);
+        return; // User cancelled
+      }
+
+      // Merge with the selected business type on the form, similar to nisir-mobile's role
+      const result = await signupWithTelegram({ ...telegramUser, businessType });
+      if (!result.success) {
+        Alert.alert("Telegram Signup Failed", result.error || "Please try again.");
+      } else {
+        router.replace("/");
+      }
+    } catch (error) {
+      Alert.alert("Telegram Signup Failed", "Something went wrong. Please try again.");
+    } finally {
+      setIsTelegramLoading(false);
     }
   }
 
@@ -182,6 +209,28 @@ export default function SignUpScreen() {
               {loading ? "Creating Account..." : "Create Account"}
             </Text>
           </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>or continue with</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
+
+          {/* Telegram Login */}
+          <TouchableOpacity
+            style={[styles.telegramButton, isTelegramLoading && { opacity: 0.7 }]}
+            onPress={handleTelegramSignup}
+            disabled={isTelegramLoading}
+            activeOpacity={0.85}
+          >
+            <View style={styles.telegramIcon}>
+              <Ionicons name="paper-plane" size={18} color="#ffffff" />
+            </View>
+            <Text style={styles.telegramButtonText}>
+              {isTelegramLoading ? "Connecting..." : "Sign up with Telegram"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.signInRow}>
@@ -233,6 +282,31 @@ const styles = StyleSheet.create({
   pickerItemText: { fontSize: 15, fontFamily: "Inter_500Medium" },
   signUpBtn: { padding: 18, borderRadius: 14, alignItems: "center", marginTop: 8 },
   signUpBtnText: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  divider: { flexDirection: "row", alignItems: "center", gap: 12 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  telegramButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#54a9eb",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    gap: 8,
+    marginTop: 8,
+  },
+  telegramIcon: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  telegramButtonText: {
+    color: "#ffffff",
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+  },
   signInRow: { flexDirection: "row", justifyContent: "center", marginTop: 28 },
   signInText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   signInLink: { fontSize: 14, fontFamily: "Inter_700Bold" },
