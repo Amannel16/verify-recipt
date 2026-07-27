@@ -88,7 +88,7 @@ export default function SignInScreen() {
 
         <View style={styles.logoRow}>
           <Image
-            source={require("@/assets/images/icon2.png")}
+            source={require("@/assets/images/icon.png")}
             style={styles.logoImageSmall}
             resizeMode="contain"
           />
