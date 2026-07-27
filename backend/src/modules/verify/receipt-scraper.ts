@@ -582,7 +582,7 @@ export async function scrapeReceiptUrl(
   try {
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "PayVerify-AI/1.0",
+        "User-Agent": "Geba-AI/1.0",
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9",
       },
       signal: AbortSignal.timeout(10000), // 10 seconds timeout

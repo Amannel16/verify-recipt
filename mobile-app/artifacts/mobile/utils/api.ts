@@ -4,7 +4,7 @@ import { Platform } from "react-native";
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? "http://217.217.249.150:7001";
 
-const TOKEN_KEY = "payverify_access_token";
+const TOKEN_KEY = "geba_access_token";
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

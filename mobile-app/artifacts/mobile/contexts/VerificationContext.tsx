@@ -72,7 +72,7 @@ interface VerificationContextType {
 
 const VerificationContext = createContext<VerificationContextType | null>(null);
 
-const STORAGE_KEY = "payverify_verifications";
+const STORAGE_KEY = "geba_verifications";
 
 // Normalize backend verification to frontend shape
 function normalizeVerification(v: Record<string, unknown>): VerificationRecord {

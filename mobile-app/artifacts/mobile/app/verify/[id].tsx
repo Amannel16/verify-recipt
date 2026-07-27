@@ -87,7 +87,7 @@ export default function VerifyDetailScreen() {
 
     try {
       await Share.share({
-        message: `PayVerify AI Report\n\nStatus: ${record.status.toUpperCase()}\nConfidence: ${record.confidence}%\nTransaction: ${record.transactionId}\nAmount: ${record.amount.toLocaleString()} ${record.currency}\nSender: ${record.senderName}\nReceiver: ${record.receiverName}\nDate: ${record.date} ${record.time}${record.crossValidation ? `\n\nCross-Validation: ${record.crossValidation.overallMatch} (${record.crossValidation.crossValidationScore}%)` : ""}`,
+        message: `Geba AI Report\n\nStatus: ${record.status.toUpperCase()}\nConfidence: ${record.confidence}%\nTransaction: ${record.transactionId}\nAmount: ${record.amount.toLocaleString()} ${record.currency}\nSender: ${record.senderName}\nReceiver: ${record.receiverName}\nDate: ${record.date} ${record.time}${record.crossValidation ? `\n\nCross-Validation: ${record.crossValidation.overallMatch} (${record.crossValidation.crossValidationScore}%)` : ""}`,
       });
     } catch (_) {}
   }

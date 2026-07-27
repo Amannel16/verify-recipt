@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -76,10 +77,12 @@ export default function SignUpScreen() {
         </TouchableOpacity>
 
         <View style={styles.logoRow}>
-          <View style={[styles.logoBox, { backgroundColor: colors.primary }]}>
-            <MaterialCommunityIcons name="shield-check" size={24} color="#FFFFFF" />
-          </View>
-          <Text style={[styles.logoText, { color: colors.foreground }]}>PayVerify AI</Text>
+          <Image
+            source={require("@/assets/images/icon2.png")}
+            style={styles.logoImageSmall}
+            resizeMode="contain"
+          />
+          <Text style={[styles.logoText, { color: colors.foreground }]}>Geba AI</Text>
         </View>
 
         <Text style={[styles.title, { color: colors.foreground }]}>Create account</Text>
@@ -200,7 +203,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 28, flexGrow: 1 },
   backBtn: { marginBottom: 24 },
   logoRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 28 },
-  logoBox: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  logoImageSmall: { width: 36, height: 36, borderRadius: 10 },
   logoText: { fontSize: 18, fontFamily: "Inter_700Bold" },
   title: { fontSize: 28, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
   subtitle: { fontSize: 15, fontFamily: "Inter_400Regular", marginTop: 6, marginBottom: 28 },

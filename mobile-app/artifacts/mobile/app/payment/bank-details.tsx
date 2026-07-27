@@ -50,7 +50,7 @@ export default function BankDetailsScreen() {
             <Text style={[styles.bankName, { color: colors.foreground }]}>Commercial Bank of Ethiopia (CBE)</Text>
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Account Name:</Text>
-              <Text style={[styles.value, { color: colors.foreground }]}>PayVerify AI Solutions</Text>
+              <Text style={[styles.value, { color: colors.foreground }]}>Geba AI Solutions</Text>
             </View>
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Account Number:</Text>
@@ -63,7 +63,7 @@ export default function BankDetailsScreen() {
             <Text style={[styles.bankName, { color: colors.foreground }]}>Telebirr Merchant Payment</Text>
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Merchant Name:</Text>
-              <Text style={[styles.value, { color: colors.foreground }]}>PayVerify AI</Text>
+              <Text style={[styles.value, { color: colors.foreground }]}>Geba AI</Text>
             </View>
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Merchant ID:</Text>

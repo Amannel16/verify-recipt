@@ -365,51 +365,41 @@ export async function performMultiPassOCR(
   images: PreprocessedImages
 ): Promise<{ text: string; confidence: number }> {
   try {
-    logger.info("🔍 Running Multi-Pass OCR Strategy across preprocessed variants...");
+    logger.info("🔍 Running Lazy Multi-Pass OCR Strategy...");
     const Tesseract = (await import("tesseract.js")).default;
 
-    // --- Pass 1: Original Image ---
-    logger.info("  [Pass 1/4] Running OCR on Original...");
-    const res1 = await Tesseract.recognize(images.original, "eng");
+    // --- Pass 1: Grayscale Normalized (Best candidate for text extraction) ---
+    logger.info("  [Pass 1/2] Running OCR on Grayscale Normalized...");
+    const res1 = await Tesseract.recognize(images.grayscaleNormalized, "eng");
     const conf1 = res1.data.confidence;
     const text1 = res1.data.text;
 
-    // High confidence short-circuit (saves server CPU and time)
-    if (conf1 >= 90 && text1.trim().length > 50) {
-      logger.info(`✨ Pass 1 (Original) has high OCR confidence: ${conf1}%. Skipping other passes.`);
-      return { text: text1, confidence: conf1 };
+    // Lazy short-circuit: check if we can successfully parse the receipt from this pass
+    if (text1 && text1.trim().length > 10) {
+      const bank = detectBankFromText(text1);
+      const parsed = parseReceiptWithBankRules(text1, bank);
+      if (parsed.transactionId && parsed.amount && parsed.confidence >= 70) {
+        logger.info(`✨ Pass 1 (Grayscale Normalized) successfully extracted transaction details (TxId: ${parsed.transactionId}, Amount: ${parsed.amount}, Confidence: ${parsed.confidence}%). Skipping other passes.`);
+        return { text: text1, confidence: conf1 };
+      }
     }
 
-    // --- Pass 2: Grayscale Normalized ---
-    logger.info("  [Pass 2/4] Running OCR on Grayscale Normalized...");
-    const res2 = await Tesseract.recognize(images.grayscaleNormalized, "eng");
+    // --- Pass 2: Original Image (Fallback) ---
+    logger.info("  [Pass 2/2] Running OCR on Original...");
+    const res2 = await Tesseract.recognize(images.original, "eng");
     const conf2 = res2.data.confidence;
     const text2 = res2.data.text;
 
-    // --- Pass 3: Sharpened ---
-    logger.info("  [Pass 3/4] Running OCR on Sharpened...");
-    const res3 = await Tesseract.recognize(images.sharpened, "eng");
-    const conf3 = res3.data.confidence;
-    const text3 = res3.data.text;
-
-    // --- Pass 4: Thresholded ---
-    logger.info("  [Pass 4/4] Running OCR on Thresholded...");
-    const res4 = await Tesseract.recognize(images.thresholded, "eng");
-    const conf4 = res4.data.confidence;
-    const text4 = res4.data.text;
-
+    // Evaluate best pass
     const passes = [
-      { text: text1, confidence: conf1, name: "Original" },
-      { text: text2, confidence: conf2, name: "Grayscale Normalized" },
-      { text: text3, confidence: conf3, name: "Sharpened" },
-      { text: text4, confidence: conf4, name: "Thresholded" }
+      { text: text1, confidence: conf1, name: "Grayscale Normalized" },
+      { text: text2, confidence: conf2, name: "Original" }
     ];
 
-    // Pick highest confidence pass
     passes.sort((a, b) => b.confidence - a.confidence);
     const best = passes[0];
 
-    logger.info(`📈 Multi-Pass OCR completed. Best variant: "${best.name}" with confidence ${best.confidence}%`);
+    logger.info(`📈 OCR completed. Best variant: "${best.name}" with confidence ${best.confidence}%`);
     return { text: best.text, confidence: best.confidence };
   } catch (error) {
     logger.error("❌ Multi-Pass OCR failed:", error);

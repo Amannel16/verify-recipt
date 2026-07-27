@@ -36,7 +36,7 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
-    const isFirstAdmin = email.toLowerCase() === "admin@payverify.ai";
+    const isFirstAdmin = email.toLowerCase() === "admin@geba.ai";
     const user = await db.user.create({
       data: {
         firstName,

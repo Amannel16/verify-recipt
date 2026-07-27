@@ -49,7 +49,7 @@ interface SignUpData {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const SESSION_KEY = "payverify_session";
+const SESSION_KEY = "geba_session";
 
 // Helper to normalize backend user shape to frontend User shape
 function normalizeUser(backendUser: Record<string, unknown>): User {

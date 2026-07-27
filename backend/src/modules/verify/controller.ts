@@ -102,38 +102,34 @@ export async function verifyReceipt(
     logger.info("🖼️ Step 1.5: Preprocessing uploaded image...");
     preprocessedImages = await preprocessReceiptImage(imagePath);
 
-    // Step 2: AI-powered receipt analysis (with multi-pass OCR & dual routing)
-    logger.info("🤖 Step 2: Running AI extraction...");
-    const aiResult: ReceiptAnalysisResult = await analyzeReceiptImage(
-      imagePath,
-      preprocessedImages,
-    );
+    // Step 2 & 3: Run AI extraction (OCR) and QR detection in parallel
+    logger.info("🤖 Running AI extraction and QR code detection in parallel...");
+    const [aiResult, qrUrlResult] = await Promise.all([
+      analyzeReceiptImage(imagePath, preprocessedImages),
+      decodeQrCode(preprocessedImages.original),
+    ]);
 
     // Step 3: URL detection (QR Code & text extraction)
     logger.info("🔗 Step 3: Detecting receipt URL...");
     let scrapedData: ScrapedReceiptData | null = null;
     let crossValidation: CrossValidationResult | null = null;
     let domainValidation: DomainValidationResult | null = null;
-    let receiptUrl = aiResult.receiptUrl || null;
+    let receiptUrl = aiResult.receiptUrl || qrUrlResult || null;
 
-    // Try to decode QR Code from optimized images if not found in text yet
+    // If QR code was not found on original, try optimized thresholded variant
     if (!receiptUrl) {
-      logger.info("📸 Running hybrid QR detection on original image...");
-      let qrUrl = await decodeQrCode(preprocessedImages.original);
-
-      if (!qrUrl) {
+      logger.info("📸 QR not found on original. Trying optimized thresholded variant...");
+      const thresholdedQrUrl = await decodeQrCode(preprocessedImages.thresholded);
+      if (thresholdedQrUrl) {
+        receiptUrl = thresholdedQrUrl;
         logger.info(
-          "📸 QR not found on original. Trying optimized thresholded variant...",
-        );
-        qrUrl = await decodeQrCode(preprocessedImages.thresholded);
-      }
-
-      if (qrUrl) {
-        receiptUrl = qrUrl;
-        logger.info(
-          `📸 Decoded verification URL from receipt QR Code: ${receiptUrl}`,
+          `📸 Decoded verification URL from receipt QR Code (Thresholded): ${receiptUrl}`,
         );
       }
+    } else if (qrUrlResult) {
+      logger.info(
+        `📸 Decoded verification URL from receipt QR Code (Original): ${receiptUrl}`,
+      );
     }
 
     // Try to extract URL from AI's extracted text if not directly found

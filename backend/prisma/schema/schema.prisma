@@ -1,4 +1,4 @@
-// Prisma Schema for PayVerify AI
+// Prisma Schema for Geba AI
 // Ethiopian Bank Receipt Verification System
 
 generator client {

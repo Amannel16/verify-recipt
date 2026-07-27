@@ -143,7 +143,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           .then(async () => {
             // Retrieve token from AsyncStorage (token_key is stored in api)
             const AsyncStorage = require("@react-native-async-storage/async-storage").default;
-            return await AsyncStorage.getItem("payverify_access_token");
+            return await AsyncStorage.getItem("geba_access_token");
           });
 
         if (!token) return;

@@ -56,7 +56,7 @@ app.use("/uploads", express.static(path.resolve("uploads")));
 app.get("/api/healthz", (_req, res) => {
   res.json({
     success: true,
-    message: "PayVerify AI backend is running",
+    message: "Geba AI backend is running",
     data: {
       status: "healthy",
       timestamp: new Date().toISOString(),
@@ -128,7 +128,7 @@ httpServer.listen(appConfig.PORT, () => {
   logger.info(`
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
-║   🛡️  PayVerify AI Backend                               ║
+║   🛡️  Geba AI Backend                                    ║
 ║   ───────────────────────────────────────                ║
 ║   🌐 Server:    http://localhost:${appConfig.PORT}                ║
 ║   📡 API Base:  http://localhost:${appConfig.PORT}/api            ║

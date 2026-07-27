@@ -126,7 +126,7 @@ export default function SubscriptionScreen() {
 
   const testimonials = [
     {
-      quote: "PayVerify saved us over 80,000 Birr in fraudulent CBE transaction receipts in our first month alone!",
+      quote: "Geba saved us over 80,000 Birr in fraudulent CBE transaction receipts in our first month alone!",
       author: "Yonas K. — Bole Electronics",
     },
     {
@@ -169,7 +169,7 @@ export default function SubscriptionScreen() {
         />
         <View style={styles.headerContent}>
           <Text style={[styles.headerBadge, { color: colors.primary, backgroundColor: colors.primary + "15" }]}>
-            PAYVERIFY AI PRICING
+            GEBA AI PRICING
           </Text>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
             Upgrade Your Business

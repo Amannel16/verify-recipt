@@ -169,7 +169,7 @@ export default function ProfileScreen() {
           onPress={() => {
             if (user?.plan === "enterprise") {
               Alert.alert(
-                "PayVerify Developer API",
+                "Geba Developer API",
                 "Your Active API Key:\npv_live_67aefc88e99ab1d8213bc0d74f2b\n\nWebhook Status: Active",
                 [
                   { text: "Copy Key", onPress: () => Alert.alert("Copied", "API key copied to clipboard.") },
@@ -180,7 +180,7 @@ export default function ProfileScreen() {
             } else {
               Alert.alert(
                 "Enterprise Feature",
-                "Developer API access and real-time webhook routing are locked on your current plan. Upgrade to Enterprise to integrate PayVerify directly into your custom systems.",
+                "Developer API access and real-time webhook routing are locked on your current plan. Upgrade to Enterprise to integrate Geba directly into your custom systems.",
                 [
                   { text: "Upgrade Plan", onPress: () => router.push("/subscription") },
                   { text: "Cancel", style: "cancel" }
@@ -250,7 +250,7 @@ export default function ProfileScreen() {
             value="Abebe K."
             onPress={() => Alert.alert(
               "Dedicated Account Manager",
-              "Your Dedicated Account Manager:\n\nName: Abebe Kebede\nDirect Support: +251 911 234 567\nEmail: abebe@payverify.ai",
+              "Your Dedicated Account Manager:\n\nName: Abebe Kebede\nDirect Support: +251 911 234 567\nEmail: abebe@geba.ai",
               [{ text: "OK" }]
             )}
           />
@@ -262,13 +262,13 @@ export default function ProfileScreen() {
             if (user?.plan === "free") {
               Alert.alert(
                 "Help Center Support",
-                "Standard Email Support:\nEmail: support@payverify.ai\nAverage response time: 48 hours",
+                "Standard Email Support:\nEmail: support@geba.ai\nAverage response time: 48 hours",
                 [{ text: "OK" }]
               );
             } else {
               Alert.alert(
                 "Priority VIP Support Line",
-                "Priority Fast-track Support:\nDirect Line: +251 911 000 111\nEmail: priority@payverify.ai\nAverage response time: < 1 hour",
+                "Priority Fast-track Support:\nDirect Line: +251 911 000 111\nEmail: priority@geba.ai\nAverage response time: < 1 hour",
                 [{ text: "OK" }]
               );
             }
@@ -277,7 +277,7 @@ export default function ProfileScreen() {
         <MenuItem
           icon="chatbubble-outline"
           label="Send Feedback"
-          onPress={() => Alert.alert("Feedback", "Thank you! Your feedback helps us improve PayVerify AI.")}
+          onPress={() => Alert.alert("Feedback", "Thank you! Your feedback helps us improve Geba AI.")}
         />
         <MenuItem
           icon="shield-outline"
@@ -291,7 +291,7 @@ export default function ProfileScreen() {
         <MenuItem icon="log-out-outline" iconColor={colors.destructive} label="Sign Out" destructive onPress={handleSignOut} right={<View />} />
       </View>
 
-      <Text style={[styles.version, { color: colors.mutedForeground }]}>PayVerify AI v1.0.0</Text>
+      <Text style={[styles.version, { color: colors.mutedForeground }]}>Geba AI v1.0.0</Text>
     </ScrollView>
   );
 }

@@ -23,7 +23,7 @@ export async function verifyPayment(transactionId: string): Promise<MpesaVerifyR
 
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "PayVerify-AI/1.0",
+        "User-Agent": "Geba-AI/1.0",
         Accept: "text/html,application/json",
       },
       signal: AbortSignal.timeout(15000),

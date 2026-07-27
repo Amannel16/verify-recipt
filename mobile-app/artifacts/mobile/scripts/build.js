@@ -507,6 +507,7 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
 
 async function main() {
   console.log("Building static Expo Go deployment...");
+  try { require('./update-logo.js'); } catch (e) { console.warn("Logo sync warning:", e.message); }
 
   setupSignalHandlers();
 

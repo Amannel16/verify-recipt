@@ -5,6 +5,9 @@
   "scripts": {
     "preinstall": "node -e \"['package-lock.json', 'yarn.lock'].forEach(f => require('fs').existsSync(f) && require('fs').unlinkSync(f)); if (!/pnpm/.test(process.env.npm_config_user_agent || '')) { console.error('Use pnpm instead'); process.exit(1); }\"",
     "dev": "pnpm --filter @workspace/api-server --filter @workspace/mockup-sandbox --parallel run dev",
+    "dev:mobile": "pnpm --filter @workspace/mobile run dev",
+    "dev:tunnel": "pnpm --filter @workspace/mobile run dev:tunnel",
+    "dev:lan": "pnpm --filter @workspace/mobile run dev:lan",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"

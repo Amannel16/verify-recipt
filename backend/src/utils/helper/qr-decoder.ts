@@ -26,6 +26,14 @@ export async function decodeQrCode(imagePath: string): Promise<string | null> {
 
     // Load the image
     const image = await Jimp.read(imagePath);
+    
+    // Downscale for faster decoding
+    const maxDimension = 800;
+    if (image.bitmap.width > maxDimension || image.bitmap.height > maxDimension) {
+      logger.info(`📐 Downscaling QR image from ${image.bitmap.width}x${image.bitmap.height} to max ${maxDimension}px`);
+      image.scaleToFit(maxDimension, maxDimension);
+    }
+    
     const { data, width, height } = image.bitmap;
 
     // --- 1. Try decoding with jsQR ---
@@ -68,7 +76,7 @@ export async function decodeQrCode(imagePath: string): Promise<string | null> {
       const reader = new MultiFormatReader();
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
-      hints.set(DecodeHintType.TRY_HARDER, true);
+      hints.set(DecodeHintType.TRY_HARDER, false);
       reader.setHints(hints);
 
       const zxingResult = reader.decode(binaryBitmap);

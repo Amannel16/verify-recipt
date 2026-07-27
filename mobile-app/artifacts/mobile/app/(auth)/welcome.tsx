@@ -1,8 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 
@@ -32,10 +31,12 @@ export default function WelcomeScreen() {
       <View style={[styles.content, { paddingTop: topPad + 40, paddingBottom: bottomPad + 24 }]}>
         {/* Logo */}
         <View style={styles.logoSection}>
-          <View style={[styles.logoBox, { backgroundColor: colors.primary }]}>
-            <MaterialCommunityIcons name="shield-check" size={40} color="#FFFFFF" />
-          </View>
-          <Text style={[styles.appName, { color: colors.foreground }]}>PayVerify AI</Text>
+          <Image
+            source={require("@/assets/images/icon2.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={[styles.appName, { color: colors.foreground }]}>Geba AI</Text>
           <Text style={[styles.tagline, { color: colors.mutedForeground }]}>
             Intelligent payment verification{"\n"}for modern businesses
           </Text>
@@ -88,17 +89,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 28, justifyContent: "space-between" },
   logoSection: { alignItems: "center", gap: 16 },
-  logoBox: {
+  logoImage: {
     width: 88,
     height: 88,
     borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#2563EB",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
   },
   appName: { fontSize: 32, fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
   tagline: { fontSize: 16, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 24 },
