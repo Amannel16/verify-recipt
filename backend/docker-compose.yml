@@ -16,6 +16,7 @@ services:
       - REDIS_URL=redis://default:checkbirr!162127@redis:6379
     depends_on:
       - redis
+      - db
 
   redis:
     image: redis:7-alpine
@@ -27,5 +28,19 @@ services:
     volumes:
       - redis_data:/data
 
+  db:
+    image: postgres:16-alpine
+    container_name: payverify-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: yourpassword
+      POSTGRES_DB: payverify
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
 volumes:
   redis_data:
+  pg_data:
