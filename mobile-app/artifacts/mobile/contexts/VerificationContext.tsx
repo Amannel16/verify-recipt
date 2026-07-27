@@ -89,8 +89,12 @@ function normalizeVerification(v: Record<string, unknown>): VerificationRecord {
     date: (v.date as string) ?? "",
     time: (v.time as string) ?? "",
     paymentMethod: (v.paymentMethod as string) ?? "Unknown",
-    reasons: (v.reasons as string[]) ?? [],
-    warnings: (v.warnings as string[]) ?? [],
+    reasons: ((v.reasons as string[]) ?? []).filter(
+      (r) => !/gemini|api failure|api key|vision/i.test(r)
+    ),
+    warnings: ((v.warnings as string[]) ?? []).filter(
+      (w) => !/gemini|api failure|api key|vision/i.test(w)
+    ),
     imageUri: (v.imageUrl as string) ?? (v.imageUri as string) ?? undefined,
     createdAt: (v.createdAt as string) ?? new Date().toISOString(),
     userId: (v.userId as string) ?? "",
