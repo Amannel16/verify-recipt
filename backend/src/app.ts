@@ -10,6 +10,7 @@ import userRoutes from "./modules/user/route.js";
 import verifyRoutes from "./modules/verify/route.js";
 import subscriptionRoutes from "./modules/subscription/route.js";
 import notificationRoutes from "./modules/notification/route.js";
+import authRoutes from "./modules/auth/route.js";
 
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -36,9 +37,10 @@ app.use((req, res, next) => {
 
 app.use(
   cors({
-    origin: "*", // In production, restrict to your mobile app domain
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   }),
 );
 
@@ -67,6 +69,7 @@ app.get("/api/healthz", (_req, res) => {
 
 // API routes
 app.use("/api/user", userRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/verify", verifyRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/notification", notificationRoutes);

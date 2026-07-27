@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "@/utils/api";
+import { TelegramUser } from "@/utils/telegram";
 
 export type BusinessType =
   | "Retail"
@@ -37,6 +38,8 @@ interface AuthContextType {
   updateProfile: (data: Partial<User>) => Promise<void>;
   upgradePlan: (plan: Plan) => Promise<void>;
   refreshUser: () => Promise<void>;
+  loginWithTelegram: (data: TelegramUser) => Promise<{ success: boolean; error?: string }>;
+  signupWithTelegram: (data: TelegramUser & { businessType?: BusinessType }) => Promise<{ success: boolean; error?: string }>;
 }
 
 interface SignUpData {
@@ -188,6 +191,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const loginWithTelegram = useCallback(async (data: TelegramUser) => {
+    try {
+      const response = await api.post<{
+        user: Record<string, unknown>;
+        accessToken: string;
+      }>("/auth/login/telegram", data as unknown as Record<string, unknown>, false);
+
+      if (!response.success || !response.data) {
+        return { success: false, error: response.message || "Telegram login failed" };
+      }
+
+      const { user: backendUser, accessToken } = response.data;
+      await api.setToken(accessToken);
+
+      const normalizedUser = normalizeUser(backendUser);
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(normalizedUser));
+      setUser(normalizedUser);
+
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: "Something went wrong. Please try again." };
+    }
+  }, []);
+
+  const signupWithTelegram = useCallback(async (data: TelegramUser & { businessType?: BusinessType }) => {
+    try {
+      const response = await api.post<{
+        user: Record<string, unknown>;
+        accessToken: string;
+      }>("/auth/signup/telegram", data as unknown as Record<string, unknown>, false);
+
+      if (!response.success || !response.data) {
+        return { success: false, error: response.message || "Telegram signup failed" };
+      }
+
+      const { user: backendUser, accessToken } = response.data;
+      await api.setToken(accessToken);
+
+      const normalizedUser = normalizeUser(backendUser);
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(normalizedUser));
+      setUser(normalizedUser);
+
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: "Something went wrong. Please try again." };
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     await api.clearToken();
     await AsyncStorage.removeItem(SESSION_KEY);
@@ -254,7 +305,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile, upgradePlan, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile, upgradePlan, refreshUser, loginWithTelegram, signupWithTelegram }}>
       {children}
     </AuthContext.Provider>
   );

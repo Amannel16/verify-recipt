@@ -16,3 +16,5 @@ authRoutes.post(
     validate(telegramSignupSchema),
     telegramSignup
 );
+
+export default authRoutes;

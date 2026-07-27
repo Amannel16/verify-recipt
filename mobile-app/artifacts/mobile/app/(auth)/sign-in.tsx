@@ -16,17 +16,19 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { openTelegramLogin } from "@/utils/telegram";
 
 export default function SignInScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, loginWithTelegram } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isTelegramLoading, setIsTelegramLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -42,6 +44,30 @@ export default function SignInScreen() {
     setLoading(false);
     if (!result.success) {
       Alert.alert("Sign In Failed", result.error || "Please try again.");
+    }
+  }
+
+  async function handleTelegramLogin() {
+    if (isTelegramLoading) return;
+    setIsTelegramLoading(true);
+
+    try {
+      const telegramUser = await openTelegramLogin();
+      if (!telegramUser) {
+        setIsTelegramLoading(false);
+        return; // User cancelled
+      }
+
+      const result = await loginWithTelegram(telegramUser);
+      if (!result.success) {
+        Alert.alert("Telegram Login Failed", result.error || "Please try again.");
+      } else {
+        router.replace("/");
+      }
+    } catch (error) {
+      Alert.alert("Telegram Login Failed", "Something went wrong. Please try again.");
+    } finally {
+      setIsTelegramLoading(false);
     }
   }
 
@@ -174,6 +200,21 @@ export default function SignInScreen() {
               <Text style={[styles.socialBtnText, { color: colors.foreground }]}>Phone</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Telegram Login */}
+          <TouchableOpacity
+            style={[styles.telegramButton, isTelegramLoading && { opacity: 0.7 }]}
+            onPress={handleTelegramLogin}
+            disabled={isTelegramLoading}
+            activeOpacity={0.85}
+          >
+            <View style={styles.telegramIcon}>
+              <Ionicons name="paper-plane" size={18} color="#ffffff" />
+            </View>
+            <Text style={styles.telegramButtonText}>
+              {isTelegramLoading ? "Connecting..." : "Log in with Telegram"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.signUpRow}>
@@ -240,6 +281,28 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   socialBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  telegramButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#54a9eb",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    gap: 8,
+    marginTop: 8,
+  },
+  telegramIcon: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  telegramButtonText: {
+    color: "#ffffff",
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+  },
   signUpRow: { flexDirection: "row", justifyContent: "center", marginTop: 32 },
   signUpText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   signUpLink: { fontSize: 14, fontFamily: "Inter_700Bold" },
