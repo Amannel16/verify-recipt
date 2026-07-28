@@ -58,7 +58,7 @@ async function analyzeWithGeminiVision(
     const prompt = `You are a payment receipt verification AI specialized in Ethiopian wallets and bank transfer screenshots. Analyze this receipt image/screenshot and extract the payment information.
 
 First, identify the receipt format:
-- **telebirr**: Look for "telebirr" logo, Ethio Telecom branding, or transaction references typically starting with "TX" or long numeric strings.
+- **telebirr**: Look for "telebirr" logo, Ethio Telecom branding, or transaction references starting with "DGO", "TX", or alphanumeric strings under "Transaction Number:". Telebirr receipt screenshots do not display full verification URLs directly on the image; ensure "transactionId" (e.g. DGO37754HD) is accurately extracted.
 - **CBE**: Look for "Commercial Bank of Ethiopia" or "CBE" logos/text. The transaction reference (Txn Ref / Ref No) usually starts with "FT".
 - **CBE Birr**: Look for "CBE Birr" branding, yellow/green colors, or similar layout.
 - **Bank of Abyssinia (BoA)**: Look for "Bank of Abyssinia", "BoA", or "Apollo" branding.
