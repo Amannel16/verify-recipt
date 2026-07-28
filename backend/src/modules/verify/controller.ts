@@ -11,7 +11,8 @@ import {
   scrapeReceiptUrl,
   type ScrapedReceiptData,
 } from "./receipt-scraper.js";
-import { extractReceiptUrl, detectProviderFromName } from "./url-extractor.js";
+import { extractReceiptUrl, detectProviderFromName, buildTelebirrReceiptUrl } from "./url-extractor.js";
+import { detectBankFromText } from "./bank-rules.js";
 import {
   crossValidate,
   type CrossValidationResult,
@@ -143,6 +144,20 @@ export async function verifyReceipt(
     // Also check request body for manually provided URL
     if (!receiptUrl && req.body.receiptUrl) {
       receiptUrl = req.body.receiptUrl;
+    }
+
+    // Telebirr receipt screenshots do NOT display full verification URLs directly on screen.
+    // If detected bank is Telebirr and transactionId is available, auto-construct the official portal URL:
+    // https://transactioninfo.ethiotelecom.et/receipt/<ID>
+    const detectedProvider =
+      detectProviderFromName(aiResult.paymentMethod || "") ||
+      detectBankFromText(aiResult.rawExtractedText || "");
+
+    if (!receiptUrl && detectedProvider === "telebirr" && aiResult.transactionId) {
+      receiptUrl = buildTelebirrReceiptUrl(aiResult.transactionId);
+      logger.info(
+        `📱 Telebirr receipt screenshot detected — auto-constructed verification URL: ${receiptUrl}`,
+      );
     }
 
     // ── Step 3.5: DOMAIN VALIDATION (Security Gate) ──
