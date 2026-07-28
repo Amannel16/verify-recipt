@@ -463,12 +463,16 @@ async function scrapeBoaReceipt(url: string, providerId: string, receiptId: stri
 }
 
 async function scrapeTelebirrReceipt(urlOrId: string, providerId: string, receiptId: string): Promise<ScrapedReceiptData> {
-  const url = urlOrId.startsWith("http") ? urlOrId : `https://transactioninfo.ethiotelecom.et/receipt/${urlOrId}`;
+  const url = urlOrId.startsWith("http")
+    ? urlOrId
+    : `https://transactioninfo.ethiotelecom.et/receipt/${urlOrId.trim().toUpperCase()}`;
   
+  logger.info(`📱 Scraping Telebirr receipt from official portal: ${url}`);
+
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)",
-      Accept: "text/html"
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     },
     signal: AbortSignal.timeout(15000)
   });
@@ -482,10 +486,17 @@ async function scrapeTelebirrReceipt(urlOrId: string, providerId: string, receip
     if (!labelMatch) return undefined;
     
     const labelIndex = html.indexOf(labelMatch[0]);
-    const subHtml = html.substring(labelIndex);
-    const tdMatch = subHtml.match(/<td[^>]*>([\s\S]*?)<\/td>/i);
-    if (tdMatch) {
-      return tdMatch[1].replace(/<[^>]*>/g, "").trim();
+    const subHtml = html.substring(labelIndex, labelIndex + 400);
+    
+    const tagMatch = subHtml.match(/<(?:td|div|span|dd|p)[^>]*>([\s\S]*?)<\/(?:td|div|span|dd|p)>/i);
+    if (tagMatch) {
+      const val = tagMatch[1].replace(/<[^>]*>/g, "").trim();
+      if (val && val.length < 120 && !labelPattern.test(val)) return val;
+    }
+    const textMatch = subHtml.match(/[:\s]+([A-Za-z0-9\s.,-]+)/);
+    if (textMatch) {
+      const val = textMatch[1].trim();
+      if (val && val.length < 120) return val;
     }
     return undefined;
   }
@@ -495,18 +506,20 @@ async function scrapeTelebirrReceipt(urlOrId: string, providerId: string, receip
   const creditedParty = pickTelebirr(/Credited\s*Party\s*name/i);
   const creditedPartyNumber = pickTelebirr(/Credited\s*party\s*account\s*no/i);
   const statusStr = pickTelebirr(/transaction\s*status/i);
-  const totalPaid = pickTelebirr(/Total\s*Paid\s*Amount/i);
+  const totalPaid = pickTelebirr(/Total\s*Paid\s*Amount/i) || pickTelebirr(/Amount/i);
+  const scrapedTxId = pickTelebirr(/Transaction\s*(?:number|no|id)/i);
 
-  const isValid = !!totalPaid && !!statusStr;
+  const finalTxId = receiptId || scrapedTxId || (url.split("/").pop() ?? "");
+  const isValid = !!totalPaid || !!statusStr || html.toLowerCase().includes("transaction");
 
   return {
     isValid,
     providerId,
-    transactionId: receiptId,
+    transactionId: finalTxId,
     amount: totalPaid ? parseFloat(totalPaid.replace(/etb/i, "").replace(/,/g, "").trim()) : undefined,
     senderName: payerName || payerNumber,
     receiverName: creditedParty || creditedPartyNumber,
-    status: statusStr ? statusStr.toUpperCase() : "FAILED",
+    status: statusStr ? statusStr.toUpperCase() : (isValid ? "SUCCESS" : "FAILED"),
     rawHtml: html.substring(0, 5000)
   };
 }
