@@ -176,3 +176,15 @@ export function detectProviderFromName(paymentMethod: string): string {
 
   return "unknown";
 }
+
+/**
+ * Constructs the official Telebirr web verification URL for a given transaction ID.
+ * Format: https://transactioninfo.ethiotelecom.et/receipt/<ID>
+ */
+export function buildTelebirrReceiptUrl(transactionId: string): string {
+  if (!transactionId || typeof transactionId !== "string") return "";
+  const cleanedId = transactionId.trim().toUpperCase();
+  if (!cleanedId) return "";
+  return `https://transactioninfo.ethiotelecom.et/receipt/${cleanedId}`;
+}
+

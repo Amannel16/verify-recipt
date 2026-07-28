@@ -81,7 +81,9 @@ export function detectBankFromText(text: string): string {
   // 1. Telebirr special signature layout (e.g. Zemen Gebeya screenshot layout)
   if (
     lowerText.includes("telebirr") || 
-    (lowerText.includes("transaction number") && lowerText.includes("transaction to") && lowerText.includes("transaction time"))
+    lowerText.includes("ethiotelecom") ||
+    lowerText.includes("ethio telecom") ||
+    (lowerText.includes("transaction number") && (lowerText.includes("transaction to") || lowerText.includes("transaction time") || lowerText.includes("transfer money")))
   ) {
     logger.info("🏦 Detected bank provider: telebirr (via signature layout)");
     return "telebirr";
@@ -222,9 +224,11 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
 
   } else if (provider === "telebirr") {
     // 2. telebirr
-    const txMatch = text.match(/\b(TX[A-Z0-9]{8,15})\b/i) 
-      || text.match(/(?:transaction number|transaction no|txn ref|ref no|txn id)[:\s]*([A-Z0-9]{8,18})/i);
-    if (txMatch) fields.transactionId = (txMatch[1] || txMatch[0]).toUpperCase();
+    const txMatch = 
+      text.match(/(?:transaction number|transaction no|txn ref|ref no|txn id|transaction id)[:\s]*([A-Z0-9]{6,25})/i) ||
+      text.match(/\b(DGO[A-Z0-9]{6,15})\b/i) ||
+      text.match(/\b(TX[A-Z0-9]{6,15})\b/i);
+    if (txMatch) fields.transactionId = (txMatch[1] || txMatch[0]).trim().toUpperCase();
 
     const signMatch = text.match(/(?:-|\+)?\s*([\d,]+\.\d{2})\s*\(?etb\)?/i);
     const amtMatch = text.match(/(?:total paid amount|amount|paid amount|net amount)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);

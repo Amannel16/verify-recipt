@@ -96,8 +96,12 @@ export async function analyzeReceipt(
     date: (data.date as string) ?? new Date().toLocaleDateString(),
     time: (data.time as string) ?? new Date().toLocaleTimeString(),
     paymentMethod: (data.paymentMethod as string) ?? "Unknown",
-    reasons: (data.reasons as string[]) ?? [],
-    warnings: (data.warnings as string[]) ?? [],
+    reasons: ((data.reasons as string[]) ?? []).filter(
+      (r) => !/gemini|api failure|api key|vision/i.test(r)
+    ),
+    warnings: ((data.warnings as string[]) ?? []).filter(
+      (w) => !/gemini|api failure|api key|vision/i.test(w)
+    ),
     imageUrl: (data.imageUrl as string) ?? undefined,
     receiptUrl: (data.receiptUrl as string) ?? null,
     scrapedData: (data.scrapedData as ScrapedData) ?? null,

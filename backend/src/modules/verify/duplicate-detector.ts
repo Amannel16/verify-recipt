@@ -87,15 +87,15 @@ export async function checkForDuplicates(
   };
 
   try {
-    // 1. Check exact transaction ID match (strongest signal)
+    // 1. Check exact transaction ID match across ALL users in the system (global check)
     if (transactionId && transactionId !== "N/A" && transactionId.length > 3) {
       const exactMatches = await db.verification.findMany({
         where: {
           transactionId,
-          userId,
         },
         select: {
           id: true,
+          userId: true,
           transactionId: true,
           amount: true,
           senderName: true,
@@ -109,28 +109,37 @@ export async function checkForDuplicates(
         result.isDuplicate = true;
         result.duplicateOf = exactMatches[0].id;
         result.riskLevel = "HIGH";
-        result.reasons.push(
-          `⚠️ This transaction ID "${transactionId}" has been submitted ${exactMatches.length} time(s) before.`,
-        );
+        
+        const isOtherUser = exactMatches.some((m) => m.userId !== userId);
+        if (isOtherUser) {
+          result.reasons.push(
+            `⚠️ CRITICAL FRAUD WARNING: This Transaction ID "${transactionId}" has ALREADY been scanned and verified in Geba AI by another user.`,
+          );
+        } else {
+          result.reasons.push(
+            `⚠️ You have already submitted and verified this Transaction ID "${transactionId}" ${exactMatches.length} time(s) before.`,
+          );
+        }
+        
         result.matchingRecords.push(...exactMatches);
 
         logger.warn(
-          `🔴 Duplicate detected: Transaction ID "${transactionId}" already exists (${exactMatches.length} matches)`,
+          `🔴 Duplicate detected: Transaction ID "${transactionId}" already exists in global database (${exactMatches.length} matches, scanned by other user: ${isOtherUser})`,
         );
         return result;
       }
     }
 
-    // 2. Check receipt hash match (SHA-256 of combined parameters)
+    // 2. Check receipt hash match across ALL users in the system (SHA-256 of combined parameters)
     const receiptHash = generateReceiptHash(paymentMethod, amount, senderName, receiverName, date);
     if (receiptHash) {
       const hashMatches = await db.verification.findMany({
         where: {
           receiptHash,
-          userId,
         },
         select: {
           id: true,
+          userId: true,
           transactionId: true,
           amount: true,
           senderName: true,
@@ -144,25 +153,33 @@ export async function checkForDuplicates(
         result.isDuplicate = true;
         result.duplicateOf = hashMatches[0].id;
         result.riskLevel = "HIGH";
-        result.reasons.push(
-          `⚠️ Duplicate screenshot detected via receipt signature match (amount: ${amount} ETB, date: ${date}).`,
-        );
+
+        const isOtherUser = hashMatches.some((m) => m.userId !== userId);
+        if (isOtherUser) {
+          result.reasons.push(
+            `⚠️ CRITICAL FRAUD WARNING: An identical receipt screenshot (Amount: ${amount} ETB, Date: ${date}) was already scanned in Geba AI by another user.`,
+          );
+        } else {
+          result.reasons.push(
+            `⚠️ Duplicate screenshot detected: You have already submitted an identical receipt (Amount: ${amount} ETB, Date: ${date}).`,
+          );
+        }
+
         result.matchingRecords.push(...hashMatches);
 
         logger.warn(
-          `🔴 Duplicate detected: Receipt hash "${receiptHash}" already exists (${hashMatches.length} matches)`,
+          `🔴 Duplicate detected: Receipt hash "${receiptHash}" already exists in global database (${hashMatches.length} matches, scanned by other user: ${isOtherUser})`,
         );
         return result;
       }
     }
 
-    // 3. Check same amount + similar sender within 24 hours (heuristic check)
+    // 3. Check same amount + similar sender within 24 hours across all users
     if (amount != null && amount > 0) {
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
       const recentSameAmount = await db.verification.findMany({
         where: {
-          userId,
           amount: {
             gte: amount - 0.01,
             lte: amount + 0.01,
@@ -173,6 +190,7 @@ export async function checkForDuplicates(
         },
         select: {
           id: true,
+          userId: true,
           transactionId: true,
           amount: true,
           senderName: true,
@@ -197,21 +215,15 @@ export async function checkForDuplicates(
           result.duplicateOf = senderMatches[0].id;
           result.riskLevel = "HIGH";
           result.reasons.push(
-            `⚠️ Found ${senderMatches.length} recent receipt(s) with same amount (${amount} ETB) and similar sender within 24 hours.`,
+            `⚠️ Found ${senderMatches.length} recent receipt(s) in system with same amount (${amount} ETB) and similar sender within 24 hours.`,
           );
           result.matchingRecords.push(...senderMatches);
-        } else if (recentSameAmount.length >= 2) {
+        } else if (recentSameAmount.length >= 3) {
           result.riskLevel = "MEDIUM";
           result.reasons.push(
-            `⚠️ Found ${recentSameAmount.length} receipts with the same amount (${amount} ETB) in the last 24 hours.`,
+            `⚠️ Found ${recentSameAmount.length} receipts with the same amount (${amount} ETB) across the system in the last 24 hours.`,
           );
           result.matchingRecords.push(...recentSameAmount.slice(0, 3));
-        } else {
-          result.riskLevel = "LOW";
-          result.reasons.push(
-            `ℹ️ One recent receipt with the same amount (${amount} ETB) found in the last 24 hours.`,
-          );
-          result.matchingRecords.push(...recentSameAmount);
         }
       }
     }

@@ -353,38 +353,52 @@ export default function VerifyDetailScreen() {
         )}
 
         {/* AI Analysis */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionTitleRow}>
-            <View style={[styles.sectionIconBox, { backgroundColor: colors.warning + "18" }]}>
-              <Ionicons name="bulb-outline" size={16} color={colors.warning} />
-            </View>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>AI Analysis</Text>
-          </View>
-          <View style={styles.reasonsList}>
-            {record.reasons.map((reason, i) => (
-              <View key={i} style={styles.reasonRow}>
-                <Ionicons
-                  name={record.status === "approved" ? "checkmark-circle" : record.status === "suspicious" ? "alert-circle" : "close-circle"}
-                  size={16}
-                  color={statusConfig.color}
-                />
-                <Text style={[styles.reasonText, { color: colors.foreground }]}>{reason}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        {(() => {
+          const displayReasons = record.reasons.filter(
+            (r) => !/gemini|api failure|api key|vision|regex matching|styling verification/i.test(r)
+          );
+          const displayWarnings = record.warnings.filter(
+            (w) => !/gemini|api failure|api key|vision|regex matching|styling verification/i.test(w)
+          );
+          return (
+            <>
+              {displayReasons.length > 0 && (
+                <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View style={styles.sectionTitleRow}>
+                    <View style={[styles.sectionIconBox, { backgroundColor: colors.warning + "18" }]}>
+                      <Ionicons name="bulb-outline" size={16} color={colors.warning} />
+                    </View>
+                    <Text style={[styles.sectionTitle, { color: colors.foreground }]}>AI Analysis</Text>
+                  </View>
+                  <View style={styles.reasonsList}>
+                    {displayReasons.map((reason, i) => (
+                      <View key={i} style={styles.reasonRow}>
+                        <Ionicons
+                          name={record.status === "approved" ? "checkmark-circle" : record.status === "suspicious" ? "alert-circle" : "close-circle"}
+                          size={16}
+                          color={statusConfig.color}
+                        />
+                        <Text style={[styles.reasonText, { color: colors.foreground }]}>{reason}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
 
-        {/* Warnings */}
-        {record.warnings.length > 0 && (
-          <View style={[styles.warningsBox, { backgroundColor: colors.warning + "15", borderColor: colors.warning + "40" }]}>
-            <Ionicons name="warning" size={18} color={colors.warning} />
-            <View style={styles.warningsList}>
-              {record.warnings.map((w, i) => (
-                <Text key={i} style={[styles.warningText, { color: colors.warning }]}>{w}</Text>
-              ))}
-            </View>
-          </View>
-        )}
+              {/* Warnings */}
+              {displayWarnings.length > 0 && (
+                <View style={[styles.warningsBox, { backgroundColor: colors.warning + "15", borderColor: colors.warning + "40" }]}>
+                  <Ionicons name="warning" size={18} color={colors.warning} />
+                  <View style={styles.warningsList}>
+                    {displayWarnings.map((w, i) => (
+                      <Text key={i} style={[styles.warningText, { color: colors.warning }]}>{w}</Text>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </>
+          );
+        })()}
 
         {/* Actions */}
         <TouchableOpacity

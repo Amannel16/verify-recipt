@@ -32,7 +32,7 @@ export default function WelcomeScreen() {
         {/* Logo */}
         <View style={styles.logoSection}>
           <Image
-            source={require("@/assets/images/icon.png")}
+            source={require("@/assets/images/icon_old_backup.png")}
             style={styles.logoImage}
             resizeMode="contain"
           />
