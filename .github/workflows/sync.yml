@@ -16,5 +16,5 @@ jobs:
 
       - name: Push to Destination Repository
         run: |
-          git remote add destination https://${{ secrets.DESTINATION_REPO_TOKEN }}@github.com/YourUsername/YourOtherRepo.git
+          git remote add destination https://${{ secrets.DESTINATION_REPO_TOKEN }}@github.com/Amannel16/verify-recipt.git
           git push destination main
