@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Geba AI",
-    "slug": "mobile",
+    "slug": "geba-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon_old_backup.png",
@@ -14,10 +14,18 @@
       "backgroundColor": "#0F172A"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.hibrettech.gebaai",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.hibrettech.gebaai"
     },
     "web": {
       "favicon": "./assets/images/icon_old_backup.png"
@@ -42,6 +50,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "23ae87fe-a11b-41e3-9ec1-1974c7c2c764"
+      }
+    },
+    "owner": "hibret-tech"
   }
 }
