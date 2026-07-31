@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://217.217.249.150:7001",
+        "EXPO_PUBLIC_API_URL": "http://217.217.249.150",
         "EXPO_PUBLIC_APP_URL": "http://217.217.249.150",
         "EXPO_PUBLIC_TELEGRAM_BOT_USERNAME": "gebaaibot"
       }
@@ -16,7 +16,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://217.217.249.150:7001",
+        "EXPO_PUBLIC_API_URL": "http://217.217.249.150",
         "EXPO_PUBLIC_APP_URL": "http://217.217.249.150",
         "EXPO_PUBLIC_TELEGRAM_BOT_USERNAME": "gebaaibot"
       }
@@ -24,7 +24,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://217.217.249.150:7001",
+        "EXPO_PUBLIC_API_URL": "http://217.217.249.150",
         "EXPO_PUBLIC_APP_URL": "http://217.217.249.150",
         "EXPO_PUBLIC_TELEGRAM_BOT_USERNAME": "gebaaibot"
       }

@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://217.217.249.150:7001";
+  process.env.EXPO_PUBLIC_API_URL ?? "http://217.217.249.150";
 
 const TOKEN_KEY = "geba_access_token";
 
@@ -11,6 +11,16 @@ export interface ApiResponse<T = unknown> {
   message: string;
   data?: T;
   error?: unknown;
+}
+
+function buildApiUrl(baseUrl: string, endpoint: string): string {
+  if (endpoint.startsWith("http")) return endpoint;
+  const cleanBase = baseUrl.replace(/\/$/, "");
+  const cleanEndpoint = endpoint.replace(/^\//, "");
+  if (cleanBase.endsWith("/api")) {
+    return `${cleanBase}/${cleanEndpoint}`;
+  }
+  return `${cleanBase}/api/${cleanEndpoint}`;
 }
 
 class ApiClient {
@@ -46,7 +56,7 @@ class ApiClient {
       isFormData?: boolean;
     },
   ): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}/api${endpoint}`;
+    const url = buildApiUrl(this.baseUrl, endpoint);
     const headers: Record<string, string> = {};
 
     // Add auth token if needed
