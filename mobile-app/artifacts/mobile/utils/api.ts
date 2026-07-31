@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://217.217.249.150";
+  process.env.EXPO_PUBLIC_API_URL ?? "http://217.217.249.150:7001";
 
 const TOKEN_KEY = "geba_access_token";
 
@@ -78,7 +78,17 @@ class ApiClient {
         body: bodyContent,
       });
 
-      const data = (await response.json()) as ApiResponse<T>;
+      const contentType = response.headers.get("content-type");
+      const isJson = contentType && contentType.includes("application/json");
+      let data: ApiResponse<T> | null = null;
+
+      if (isJson) {
+        try {
+          data = (await response.json()) as ApiResponse<T>;
+        } catch {
+          data = null;
+        }
+      }
 
       if (!response.ok) {
         // Handle 401 — token expired
@@ -90,8 +100,18 @@ class ApiClient {
         }
         return {
           success: false,
-          message: data.message || `Request failed with status ${response.status}`,
-          error: data.error,
+          message:
+            data?.message ||
+            `Server error (${response.status}): ${response.statusText || "Unexpected response"}`,
+          error: data?.error,
+        };
+      }
+
+      if (!data) {
+        // Response was OK (e.g. 200), but not JSON (likely an HTML page from a wrong server route)
+        return {
+          success: false,
+          message: `Server returned non-JSON response (${response.status}). Please check API URL routing.`,
         };
       }
 
