@@ -45,6 +45,14 @@
           "photosPermission": "Geba AI needs access to your photos to analyze receipt images.",
           "cameraPermission": "Geba AI needs camera access to scan payment receipts."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "experiments": {
