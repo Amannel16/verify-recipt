@@ -210,6 +210,19 @@ export function calculateRiskScore(
         detail: crossValidation.summary,
       });
     }
+
+    // Explicit check for Receiver Name Mismatch penalty
+    const receiverField = crossValidation.fieldMatches.find((f) => f.field === "Receiver Name");
+    if (receiverField && !receiverField.matches && receiverField.aiValue != null && receiverField.scrapedValue != null) {
+      const receiverPenalty = -45;
+      totalScore += receiverPenalty;
+      checks.push({
+        name: "Receiver Name Mismatch",
+        score: receiverPenalty,
+        status: "FAIL",
+        detail: `Recipient mismatch: Receipt screenshot shows "${receiverField.aiValue}" but official URL portal shows "${receiverField.scrapedValue}"`,
+      });
+    }
   }
 
   // ── 4. Duplicate Detection Checks ──
