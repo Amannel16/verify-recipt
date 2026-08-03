@@ -186,6 +186,34 @@ export async function verifyReceipt(
             // Step 4: Cross-validate AI extraction vs scraped data
             logger.info("🔄 Step 4: Running cross-validation...");
             crossValidation = crossValidate(aiResult, scrapedData);
+
+            // Populate missing/unknown sender details from official verified portal URL
+            const isUnknownSender =
+              !aiResult.senderName ||
+              /unknown|telebirr user|n\/a|^$/i.test(aiResult.senderName.trim());
+            if (isUnknownSender && scrapedData.senderName) {
+              logger.info(
+                `💡 Populating missing sender from official URL portal: ${scrapedData.senderName}`,
+              );
+              aiResult.senderName = scrapedData.senderName;
+              if (scrapedData.senderAccount && !aiResult.senderAccount) {
+                aiResult.senderAccount = scrapedData.senderAccount;
+              }
+            }
+
+            // Populate missing/unknown receiver details from official verified portal URL
+            const isUnknownReceiver =
+              !aiResult.receiverName ||
+              /unknown|n\/a|^$/i.test(aiResult.receiverName.trim());
+            if (isUnknownReceiver && scrapedData.receiverName) {
+              logger.info(
+                `💡 Populating missing receiver from official URL portal: ${scrapedData.receiverName}`,
+              );
+              aiResult.receiverName = scrapedData.receiverName;
+              if (scrapedData.receiverAccount && !aiResult.receiverAccount) {
+                aiResult.receiverAccount = scrapedData.receiverAccount;
+              }
+            }
           } else {
             logger.warn(
               "⚠️ URL scraping returned invalid data — skipping cross-validation",
@@ -214,6 +242,26 @@ export async function verifyReceipt(
               "🔄 Step 4: Running cross-validation (bank mismatch context)...",
             );
             crossValidation = crossValidate(aiResult, scrapedData);
+
+            // Populate missing sender/receiver if available
+            const isUnknownSender =
+              !aiResult.senderName ||
+              /unknown|telebirr user|n\/a|^$/i.test(aiResult.senderName.trim());
+            if (isUnknownSender && scrapedData.senderName) {
+              aiResult.senderName = scrapedData.senderName;
+              if (scrapedData.senderAccount && !aiResult.senderAccount) {
+                aiResult.senderAccount = scrapedData.senderAccount;
+              }
+            }
+            const isUnknownReceiver =
+              !aiResult.receiverName ||
+              /unknown|n\/a|^$/i.test(aiResult.receiverName.trim());
+            if (isUnknownReceiver && scrapedData.receiverName) {
+              aiResult.receiverName = scrapedData.receiverName;
+              if (scrapedData.receiverAccount && !aiResult.receiverAccount) {
+                aiResult.receiverAccount = scrapedData.receiverAccount;
+              }
+            }
           }
         } catch (error) {
           logger.error("URL scraping failed (bank mismatch context):", error);
