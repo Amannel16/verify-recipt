@@ -38,6 +38,7 @@ interface AuthContextType {
   updateProfile: (data: Partial<User>) => Promise<void>;
   upgradePlan: (plan: Plan) => Promise<void>;
   refreshUser: () => Promise<void>;
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
   loginWithTelegram: (data: TelegramUser) => Promise<{ success: boolean; error?: string }>;
   signupWithTelegram: (data: TelegramUser & { businessType?: BusinessType }) => Promise<{ success: boolean; error?: string }>;
 }
@@ -304,8 +305,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const deleteAccount = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const response = await api.delete("/user/account");
+      if (response.success) {
+        setUser(null);
+        await api.clearToken();
+        await AsyncStorage.removeItem(SESSION_KEY);
+        return { success: true };
+      }
+      return { success: false, error: response.error || "Failed to delete account" };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Failed to delete account" };
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile, upgradePlan, refreshUser, loginWithTelegram, signupWithTelegram }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile, upgradePlan, refreshUser, deleteAccount, loginWithTelegram, signupWithTelegram }}>
       {children}
     </AuthContext.Provider>
   );

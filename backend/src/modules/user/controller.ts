@@ -202,4 +202,96 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Delete Account (Google Play Policy Compliance)
+// ─────────────────────────────────────────────────────────────
+export async function deleteAccount(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+
+    logger.info(`🗑️ User requested account deletion: ${userId}`);
+
+    // Delete user's verifications, notifications, and subscriptions in transaction
+    await db.$transaction([
+      db.verification.deleteMany({ where: { userId } }),
+      db.notification.deleteMany({ where: { userId } }),
+      db.subscription.deleteMany({ where: { userId } }),
+      db.user.delete({ where: { id: userId } }),
+    ]);
+
+    logger.info(`✅ Account and associated data successfully deleted for user ${userId}`);
+
+    res.json({
+      success: true,
+      message: "Account and associated data deleted successfully.",
+    });
+  } catch (error) {
+    logger.error("Delete account failed:", error);
+    res.status(500).json({ success: false, message: "Failed to delete account." });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Web Account Deletion Request (Google Play URL Compliance)
+// ─────────────────────────────────────────────────────────────
+export async function webDeleteAccount(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      res.status(400).json({
+        success: false,
+        message: "Registered email address and password are required.",
+      });
+      return;
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await db.user.findUnique({ where: { email: normalizedEmail } });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "No account found matching this email address.",
+      });
+      return;
+    }
+
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      res.status(401).json({
+        success: false,
+        message: "Invalid password. Deletion request denied.",
+      });
+      return;
+    }
+
+    logger.info(`🗑️ Web account deletion executed for user: ${normalizedEmail}`);
+
+    await db.$transaction([
+      db.verification.deleteMany({ where: { userId: user.id } }),
+      db.notification.deleteMany({ where: { userId: user.id } }),
+      db.subscription.deleteMany({ where: { userId: user.id } }),
+      db.user.delete({ where: { id: user.id } }),
+    ]);
+
+    logger.info(`✅ Account and all associated data permanently deleted for ${normalizedEmail}`);
+
+    res.json({
+      success: true,
+      message: "Your Geba AI account and all associated data have been permanently deleted.",
+    });
+  } catch (error) {
+    logger.error("Web delete account failed:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process account deletion request.",
+    });
+  }
+}
+
 
