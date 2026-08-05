@@ -1,0 +1,20 @@
+name: Sync to Another Repository
+
+on:
+  push:
+    branches:
+      - main # Or whichever branch you want to sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Push to Destination Repository
+        run: |
+          git remote add destination https://${{ secrets.DESTINATION_REPO_TOKEN }}@github.com/Amannel16/verify-recipt.git
+          git push destination main

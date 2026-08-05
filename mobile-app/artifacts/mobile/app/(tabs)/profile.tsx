@@ -52,7 +52,7 @@ function MenuItem({ icon, iconColor, label, value, onPress, right, destructive }
 export default function ProfileScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const { getStats } = useVerifications();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -68,6 +68,26 @@ export default function ProfileScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Sign Out", style: "destructive", onPress: signOut },
     ]);
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account and all stored receipt verifications? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Permanently",
+          style: "destructive",
+          onPress: async () => {
+            const res = await deleteAccount();
+            if (!res.success) {
+              Alert.alert("Error", res.error || "Failed to delete account");
+            }
+          },
+        },
+      ]
+    );
   }
 
   const planLabel = user?.plan === "free" ? "Free Plan" : user?.plan === "pro" ? "Pro Plan" : "Enterprise";
@@ -286,9 +306,10 @@ export default function ProfileScreen() {
         />
       </View>
 
-      {/* Sign out */}
+      {/* Account Actions */}
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]}>
         <MenuItem icon="log-out-outline" iconColor={colors.destructive} label="Sign Out" destructive onPress={handleSignOut} right={<View />} />
+        <MenuItem icon="trash-outline" iconColor={colors.destructive} label="Delete Account" destructive onPress={handleDeleteAccount} right={<View />} />
       </View>
 
       <Text style={[styles.version, { color: colors.mutedForeground }]}>Geba AI v1.0.0</Text>

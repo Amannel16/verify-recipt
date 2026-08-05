@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://217.217.249.150";
+  process.env.EXPO_PUBLIC_API_URL ?? "http://217.217.249.150:7001";
 
 const TOKEN_KEY = "geba_access_token";
 

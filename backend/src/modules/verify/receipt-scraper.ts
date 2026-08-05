@@ -9,7 +9,9 @@ export interface ScrapedReceiptData {
   transferReference?: string;
   amount?: number;
   senderName?: string;
+  senderAccount?: string;
   receiverName?: string;
+  receiverAccount?: string;
   date?: string;
   status?: string;
   error?: string;
@@ -481,44 +483,91 @@ async function scrapeTelebirrReceipt(urlOrId: string, providerId: string, receip
 
   const html = await response.text();
 
-  function pickTelebirr(labelPattern: RegExp): string | undefined {
-    const labelMatch = html.match(labelPattern);
+  // Extract all table row key-value pairs
+  const data: Record<string, string> = {};
+  const trMatches = html.match(/<tr[\s\S]*?<\/tr>/gi);
+  if (trMatches) {
+    for (const tr of trMatches) {
+      const tdMatches = [...tr.matchAll(/<td[\s\S]*?>([\s\S]*?)<\/td>/gi)];
+      if (tdMatches.length >= 2) {
+        const key = tdMatches[0][1].replace(/<[^>]*>/g, "").trim();
+        const value = tdMatches[1][1].replace(/<[^>]*>/g, "").trim();
+        if (key && value) {
+          data[key] = value;
+        }
+      }
+    }
+  }
+
+  function getVal(pattern: RegExp): string | undefined {
+    // 1. Check extracted table dictionary keys
+    for (const [k, v] of Object.entries(data)) {
+      if (pattern.test(k) && v) return v;
+    }
+    // 2. Fallback: Search nearby tags in raw HTML
+    const labelMatch = html.match(pattern);
     if (!labelMatch) return undefined;
-    
     const labelIndex = html.indexOf(labelMatch[0]);
     const subHtml = html.substring(labelIndex, labelIndex + 400);
-    
-    const tagMatch = subHtml.match(/<(?:td|div|span|dd|p)[^>]*>([\s\S]*?)<\/(?:td|div|span|dd|p)>/i);
-    if (tagMatch) {
-      const val = tagMatch[1].replace(/<[^>]*>/g, "").trim();
-      if (val && val.length < 120 && !labelPattern.test(val)) return val;
-    }
-    const textMatch = subHtml.match(/[:\s]+([A-Za-z0-9\s.,-]+)/);
-    if (textMatch) {
-      const val = textMatch[1].trim();
-      if (val && val.length < 120) return val;
+    const tagMatches = [...subHtml.matchAll(/<(?:td|div|span|dd|p)[^>]*>([\s\S]*?)<\/(?:td|div|span|dd|p)>/gi)];
+    for (const tm of tagMatches) {
+      const val = tm[1].replace(/<[^>]*>/g, "").trim();
+      if (val && !pattern.test(val) && val.length < 120) {
+        return val;
+      }
     }
     return undefined;
   }
 
-  const payerName = pickTelebirr(/Payer\s*Name/i);
-  const payerNumber = pickTelebirr(/Payer\s*telebirr/i);
-  const creditedParty = pickTelebirr(/Credited\s*Party\s*name/i);
-  const creditedPartyNumber = pickTelebirr(/Credited\s*party\s*account\s*no/i);
-  const statusStr = pickTelebirr(/transaction\s*status/i);
-  const totalPaid = pickTelebirr(/Total\s*Paid\s*Amount/i) || pickTelebirr(/Amount/i);
-  const scrapedTxId = pickTelebirr(/Transaction\s*(?:number|no|id)/i);
+  const payerName = getVal(/Payer\s*Name|የክፍያ\s*ስም/i);
+  const payerNumber = getVal(/Payer\s*telebirr|የክፍያ\s*ቴሌብር/i);
+  const creditedParty = getVal(/Credited\s*Party\s*name|የገንዘብ\s*ተቀባይ\s*ስም/i);
+  const creditedPartyNumber = getVal(/Credited\s*party\s*account|የገንዘብ\s*ተቀባይ\s*ቴሌብር/i);
+  const statusStr = getVal(/Transaction\s*status|የክፍያው\s*ሁኔታ/i);
+  const settledAmount = getVal(/Settled\s*Amount|የተከፈለው\s*መጠን/i);
+  const totalPaid = getVal(/Total\s*Paid\s*Amount|ጠቅላላ\s*የተከፈለ/i) || getVal(/Amount/i) || settledAmount;
+  const scrapedTxId = getVal(/Invoice\s*No|Transaction\s*(?:number|no|id)|የክፍያ\s*ቁጥር/i);
+  const paymentDateStr = getVal(/Payment\s*date|የክፍያ\s*ቀን/i);
 
   const finalTxId = receiptId || scrapedTxId || (url.split("/").pop() ?? "");
-  const isValid = !!totalPaid || !!statusStr || html.toLowerCase().includes("transaction");
+  const isValid = !!totalPaid || !!statusStr || !!payerName || html.toLowerCase().includes("telebirr");
+
+  // Amount parsing
+  let parsedAmount: number | undefined = undefined;
+  if (totalPaid) {
+    const numMatch = totalPaid.match(/([\d,]+\.?\d*)/);
+    if (numMatch) {
+      parsedAmount = parseFloat(numMatch[1].replace(/,/g, ""));
+    }
+  }
+
+  // Date parsing: "03-08-2026 08:36:34" or "DD-MM-YYYY HH:mm:ss"
+  let parsedDate: string | undefined = undefined;
+  if (paymentDateStr) {
+    try {
+      const dateMatch = paymentDateStr.match(/(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+      if (dateMatch) {
+        const [_, day, month, year, h, m, s] = dateMatch;
+        const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10), parseInt(h, 10), parseInt(m, 10), parseInt(s, 10));
+        parsedDate = d.toISOString();
+      } else {
+        parsedDate = new Date(paymentDateStr).toISOString();
+      }
+    } catch {
+      parsedDate = paymentDateStr;
+    }
+  }
 
   return {
     isValid,
     providerId,
     transactionId: finalTxId,
-    amount: totalPaid ? parseFloat(totalPaid.replace(/etb/i, "").replace(/,/g, "").trim()) : undefined,
-    senderName: payerName || payerNumber,
-    receiverName: creditedParty || creditedPartyNumber,
+    amount: parsedAmount,
+    senderName: payerName,
+    senderAccount: payerNumber,
+    receiverName: creditedParty,
+    receiverAccount: creditedPartyNumber,
+    date: parsedDate,
     status: statusStr ? statusStr.toUpperCase() : (isValid ? "SUCCESS" : "FAILED"),
     rawHtml: html.substring(0, 5000)
   };

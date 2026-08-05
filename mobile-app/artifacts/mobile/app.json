@@ -4,12 +4,12 @@
     "slug": "geba-ai",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon_old_backup.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon_old_backup.png",
+      "image": "./assets/images/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0F172A"
     },
@@ -22,9 +22,7 @@
     },
     "android": {
       "usesCleartextTraffic": true,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ],
+      "permissions": [],
       "package": "com.hibrettech.gebaai"
     },
     "web": {
@@ -44,6 +42,14 @@
         {
           "photosPermission": "Geba AI needs access to your photos to analyze receipt images.",
           "cameraPermission": "Geba AI needs camera access to scan payment receipts."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],

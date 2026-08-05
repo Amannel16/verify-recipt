@@ -12,6 +12,13 @@ import subscriptionRoutes from "./modules/subscription/route.js";
 import notificationRoutes from "./modules/notification/route.js";
 import authRoutes from "./modules/auth/route.js";
 
+import { securityHeadersMiddleware } from "./middlewares/security-headers.js";
+import {
+  authRateLimiter,
+  verifyRateLimiter,
+  generalRateLimiter,
+} from "./middlewares/rate-limiter.js";
+
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,9 +26,13 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // ─────────────────────────────────────────────────────────────
-// Middleware
+// Security & Middleware
 // ─────────────────────────────────────────────────────────────
 
+// Security headers
+app.use(securityHeadersMiddleware);
+
+// Request logger
 app.use((req, res, next) => {
   const startTime = Date.now();
 
@@ -35,9 +46,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Production-safe CORS configuration
+const allowedOrigins = process.env.CLIENT_URL
+  ? [process.env.CLIENT_URL, "http://localhost:4000", "http://localhost:8081"]
+  : true;
+
 app.use(
   cors({
-    origin: true,
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
@@ -47,12 +63,23 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Serve uploaded receipt images statically
-app.use("/uploads", express.static(path.resolve("uploads")));
+// Serve uploaded receipt images with security headers
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Disposition", "inline");
+    next();
+  },
+  express.static(path.resolve("uploads")),
+);
 
 // ─────────────────────────────────────────────────────────────
-// Routes
+// Routes & Rate Limiting
 // ─────────────────────────────────────────────────────────────
+
+// Apply general rate limiting across all API routes
+app.use("/api", generalRateLimiter);
 
 // Health check
 app.get("/api/healthz", (_req, res) => {
@@ -67,10 +94,188 @@ app.get("/api/healthz", (_req, res) => {
   });
 });
 
-// API routes
+// Web Account Deletion Request Page (Google Play Store Compliance)
+app.get("/delete-account", (_req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Geba AI - Account & Data Deletion Request</title>
+  <style>
+    :root {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --text: #F8FAFC;
+      --muted: #94A3B8;
+      --primary: #3B82F6;
+      --danger: #EF4444;
+      --border: #334155;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .card {
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-size: 20px;
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+    p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background-color: #0F172A;
+      color: var(--text);
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background-color: var(--danger);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .alert {
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 16px;
+      font-size: 14px;
+      display: none;
+    }
+    .alert-success {
+      background-color: rgba(34, 197, 94, 0.1);
+      border: 1px solid #22C55E;
+      color: #4ADE80;
+    }
+    .alert-error {
+      background-color: rgba(239, 68, 68, 0.1);
+      border: 1px solid #EF4444;
+      color: #F87171;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🛡️ Geba AI</div>
+    <h1>Account & Data Deletion Request</h1>
+    <p>
+      Under Google Play Policies and Privacy guidelines, you can request the permanent deletion of your Geba AI account and all associated data (receipt records, profile details, notification history).
+    </p>
+    <div id="alertSuccess" class="alert alert-success"></div>
+    <div id="alertError" class="alert alert-error"></div>
+    <form id="deleteForm">
+      <div class="form-group">
+        <label for="email">Registered Email Address</label>
+        <input type="email" id="email" required placeholder="name@example.com">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" required placeholder="Enter password to confirm">
+      </div>
+      <button type="submit" id="submitBtn">Delete Account & All Associated Data</button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('deleteForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const submitBtn = document.getElementById('submitBtn');
+      const alertSuccess = document.getElementById('alertSuccess');
+      const alertError = document.getElementById('alertError');
+
+      alertSuccess.style.display = 'none';
+      alertError.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Processing Deletion...';
+
+      try {
+        const res = await fetch('/api/user/delete-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alertSuccess.innerText = data.message;
+          alertSuccess.style.display = 'block';
+          document.getElementById('deleteForm').style.display = 'none';
+        } else {
+          alertError.innerText = data.message || 'Failed to delete account.';
+          alertError.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.innerText = 'Delete Account & All Associated Data';
+        }
+      } catch (err) {
+        alertError.innerText = 'Network error. Please try again.';
+        alertError.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Delete Account & All Associated Data';
+      }
+    });
+  </script>
+</body>
+</html>
+  `);
+});
+
+// API routes with endpoint-specific rate limiters
 app.use("/api/user", userRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/verify", verifyRoutes);
+app.use("/api/auth", authRateLimiter, authRoutes);
+app.use("/api/verify", verifyRateLimiter, verifyRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/notification", notificationRoutes);
 

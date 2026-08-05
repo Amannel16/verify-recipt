@@ -1,5 +1,5 @@
 {
-  "name": "payverify-backend",
+  "name": "geba-backend",
   "version": "1.0.0",
   "description": "Payment Verification AI Backend — Ethiopian Bank Receipt Verification",
   "main": "dist/app.js",

@@ -1,6 +1,6 @@
-# 🛡️ PayVerify AI — Ethiopian Bank Receipt Verification System
+# 🛡️ geba AI — Ethiopian Bank Receipt Verification System
 
-PayVerify AI is a production-ready, full-stack monorepo system designed to verify the authenticity of digital transaction receipts and screenshots from all major Ethiopian banks and wallets. It protects merchants from "photoshopped receipt" fraud by combining AI-powered extraction, local OCR fallbacks, QR code scanning, and automated public verification portal scraping.
+geba AI is a production-ready, full-stack monorepo system designed to verify the authenticity of digital transaction receipts and screenshots from all major Ethiopian banks and wallets. It protects merchants from "photoshopped receipt" fraud by combining AI-powered extraction, local OCR fallbacks, QR code scanning, and automated public verification portal scraping.
 
 ---
 

@@ -1,10 +1,10 @@
 Project Customization Prompt
 
-Project Name: PayVerify AI
+Project Name: geba AI
 
 Objective:
 
-Transform the existing React Native template into a modern SaaS-based mobile application called PayVerify AI, an AI-powered payment verification platform for businesses.
+Transform the existing React Native template into a modern SaaS-based mobile application called geba AI, an AI-powered payment verification platform for businesses.
 
 The application must allow users to verify payment receipts by taking a photo, uploading screenshots, or importing receipt images and automatically determine whether a payment is genuine, suspicious, or invalid.
 

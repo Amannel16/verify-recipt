@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: payverify-backend
+    container_name: geba-backend
     restart: always
     ports:
       - "7001:7001"
@@ -18,7 +18,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: payverify-redis
+    container_name: geba-redis
     restart: always
     command: redis-server --requirepass checkbirr!162127
     expose:
@@ -28,12 +28,12 @@ services:
 
   db:
     image: postgres:16-alpine
-    container_name: payverify-db
+    container_name: geba-db
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: yourpassword
-      POSTGRES_DB: payverify
+      POSTGRES_DB: geba
     ports:
       - "5435:5432"
     volumes:
