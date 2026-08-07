@@ -74,37 +74,70 @@ export function cleanName(val: string): string {
 /**
  * Detects which bank provider the receipt belongs to based on keywords and signature layouts.
  */
+/**
+ * Detects which bank provider the receipt belongs to based on keywords and signature layouts.
+ */
 export function detectBankFromText(text: string): string {
   if (!text) return "generic";
   const lowerText = text.toLowerCase();
   
-  // 1. Telebirr special signature layout (e.g. Zemen Gebeya screenshot layout)
+  // 1. Telebirr special signature layout or SMS (e.g., sender 127)
   if (
     lowerText.includes("telebirr") || 
     lowerText.includes("ethiotelecom") ||
     lowerText.includes("ethio telecom") ||
-    (lowerText.includes("transaction number") && (lowerText.includes("transaction to") || lowerText.includes("transaction time") || lowerText.includes("transfer money")))
+    lowerText.includes("transactioninfo.ethiotelecom.et") ||
+    (lowerText.includes("transaction number") && (lowerText.includes("transaction to") || lowerText.includes("transaction time") || lowerText.includes("transfer money") || lowerText.includes("service fee")))
   ) {
     logger.info("🏦 Detected bank provider: telebirr (via signature layout)");
     return "telebirr";
   }
 
-  // 2. Commercial Bank of Ethiopia (CBE) special signatures
+  // 2. Commercial Bank of Ethiopia (CBE) special signatures or SMS
   if (
     lowerText.includes("commercial bank of ethiopia") || 
     lowerText.includes("cbe") || 
     lowerText.includes("cbebirr") ||
     lowerText.includes("combanketh") ||
+    lowerText.includes("mreciept.cbe.com.et") ||
+    lowerText.includes("mreceipt.cbe.com.et") ||
+    lowerText.includes("banking with cbe") ||
+    (lowerText.includes("debit transaction") && lowerText.includes("account")) ||
     (lowerText.includes("debited from") && lowerText.includes("for")) ||
     /\bFT[A-Z0-9]{10,22}\b/i.test(text)
   ) {
     logger.info("🏦 Detected bank provider: CBE (via signature layout)");
     return "cbe";
   }
+
+  // 3. M-Pesa special signatures or SMS
+  if (
+    lowerText.includes("m-pesa") ||
+    lowerText.includes("mpesa") ||
+    lowerText.includes("safaricom") ||
+    lowerText.includes("m-pesabusiness.safaricom.et") ||
+    (lowerText.includes("received") && lowerText.includes("birr from") && lowerText.includes("transaction number"))
+  ) {
+    logger.info("🏦 Detected bank provider: M-Pesa (via signature layout)");
+    return "m-pesa";
+  }
+
+  // 4. Dashen Bank special signatures or SMS
+  if (
+    lowerText.includes("dashen") ||
+    lowerText.includes("amole") ||
+    lowerText.includes("ipss") ||
+    lowerText.includes("db superapp") ||
+    lowerText.includes("dashen super app") ||
+    lowerText.includes("receipts.dashenbanksc.com")
+  ) {
+    logger.info("🏦 Detected bank provider: Dashen Bank (via signature layout)");
+    return "dashen";
+  }
   
-  // 3. General templates
+  // 5. General templates
   for (const template of BANK_TEMPLATES) {
-    if (template.provider === "cbe" || template.provider === "telebirr") continue;
+    if (template.provider === "cbe" || template.provider === "telebirr" || template.provider === "dashen" || template.provider === "m-pesa") continue;
 
     for (const keyword of template.keywords) {
       if (lowerText.includes(keyword)) {
@@ -142,13 +175,19 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
   const lowerText = text.toLowerCase();
 
   // Standard date/time parsers
-  const dateMatch = text.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  const dateMatch = text.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
   if (dateMatch) {
     fields.date = dateMatch[0];
   } else {
-    // Text-based dates like "Jun 29, 2026" or "Jun 15, 2026"
-    const textDateMatch = text.match(/([A-Za-z]{3,9})\s+(\d{1,2}),?\s*(\d{4})/i);
-    if (textDateMatch) fields.date = textDateMatch[0];
+    // ISO date format YYYY-MM-DD
+    const isoDateMatch = text.match(/(\d{4}-\d{2}-\d{2})/);
+    if (isoDateMatch) {
+      fields.date = isoDateMatch[0];
+    } else {
+      // Text-based dates like "Jun 29, 2026" or "Jun 15, 2026"
+      const textDateMatch = text.match(/([A-Za-z]{3,9})\s+(\d{1,2}),?\s*(\d{4})/i);
+      if (textDateMatch) fields.date = textDateMatch[0];
+    }
   }
 
   const timeMatch = text.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
@@ -179,17 +218,22 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
   // --- BANK SPECIFIC REGEX PARSING TIER ---
   if (provider === "cbe") {
     // 1. CBE (Commercial Bank of Ethiopia)
-    const txMatch = text.match(/\b(FT[A-Z0-9]{8,22})\b/i);
+    const txMatch = text.match(/\b(FT[A-Z0-9]{8,22})\b/i) ||
+      text.match(/mreciept\.cbe\.com\.et\/([A-Za-z0-9_-]+)/i) ||
+      text.match(/mreceipt\.cbe\.com\.et\/([A-Za-z0-9_-]+)/i);
     if (txMatch) fields.transactionId = txMatch[1].toUpperCase();
 
     // Base Amount parsing
     const debitedMatch = text.match(/(?:etb|birr)\s*([\d,]+(?:\.\d{1,2})?)\s+has\s+been\s+debited/i);
+    const smsDebitAmtMatch = text.match(/(?:debit\s+transaction\s+of|debited)\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
     const smsMatch = text.match(/transferred\s+to\s+other\s+bank\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
     const amtMatch = text.match(/(?:transferred amount|amount|total paid|paid)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i)
       || text.match(/(?:etb|birr)\s*([\d,]+(?:\.\d{1,2})?)/i);
 
     if (debitedMatch) {
       fields.amount = parseFloat(debitedMatch[1].replace(/,/g, ""));
+    } else if (smsDebitAmtMatch) {
+      fields.amount = parseFloat(smsDebitAmtMatch[1].replace(/,/g, ""));
     } else if (smsMatch) {
       fields.amount = parseFloat(smsMatch[1].replace(/,/g, ""));
     } else if (amtMatch) {
@@ -197,15 +241,28 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     }
 
     // Total Amount parsing
-    const totalMatch = text.match(/(?:total amount debited|total amount|total debited)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const totalMatch = text.match(/(?:total amount debited|total amount|total debited)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/total\s+of\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
     if (totalMatch) fields.totalAmount = parseFloat(totalMatch[1].replace(/,/g, ""));
 
     // Service Charge (Fees) parsing
-    const feeMatch = text.match(/(?:service charge|fee|charge)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-    if (feeMatch) fields.fees = parseFloat(feeMatch[1].replace(/,/g, ""));
+    const feeMatch = text.match(/(?:service charge|fee|charge)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/service\s+charge\s+of\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    let feeSum = 0;
+    if (feeMatch) feeSum += parseFloat(feeMatch[1].replace(/,/g, ""));
+    
+    const vatMatch = text.match(/vat\s*(?:\(15%\))?\s*of\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (vatMatch) feeSum += parseFloat(vatMatch[1].replace(/,/g, ""));
 
-    // Names parsing
+    const drrfMatch = text.match(/disaster\s+recovery\s*(?:\(5%\))?\s*of\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (drrfMatch) feeSum += parseFloat(drrfMatch[1].replace(/,/g, ""));
+
+    if (feeSum > 0) fields.fees = feeSum;
+
+    // Names & Account parsing
     const sentenceMatch = text.match(/debited\s+from\s+([A-Za-z\s.-]+?)(?:\s+etb-\d+|\s+account)?\s+for\s+([A-Za-z\s.-]+?)(?:\s+etb-\d+|\s+account)?\s+(?:on|with)/i);
+    const smsSenderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)\s+A\s+debit\s+transaction/i) ||
+      text.match(/Dear\s+([A-Za-z\s.-]+?)\s+ETB/i);
     const smsReceiverMatch = text.match(/to\s+\d{8,16}\s*\(([^)]+)\)/i);
     const senderMatch = text.match(/(?:from|sender|payer|debited from|source name)[:\s]+([A-Za-z\s.-]+)/i);
     const receiverMatch = text.match(/(?:to|receiver|payee|beneficiary|credited party)[:\s]+([A-Za-z\s.-]+)/i);
@@ -214,7 +271,9 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
       fields.senderName = cleanName(sentenceMatch[1]);
       fields.receiverName = cleanName(sentenceMatch[2]);
     } else {
-      if (senderMatch?.[1]) fields.senderName = cleanName(senderMatch[1]);
+      if (smsSenderMatch?.[1]) fields.senderName = cleanName(smsSenderMatch[1]);
+      else if (senderMatch?.[1]) fields.senderName = cleanName(senderMatch[1]);
+
       if (receiverMatch?.[1]) fields.receiverName = cleanName(receiverMatch[1]);
     }
 
@@ -222,44 +281,107 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
       fields.receiverName = cleanName(smsReceiverMatch[1]);
     }
 
+    const cbeAccMatch = text.match(/account\s+([0-9*]{8,18})/i);
+    if (cbeAccMatch) fields.senderAccount = cbeAccMatch[1];
+
   } else if (provider === "telebirr") {
     // 2. telebirr
     const txMatch = 
       text.match(/(?:transaction number|transaction no|txn ref|ref no|txn id|transaction id)[:\s]*([A-Z0-9]{6,25})/i) ||
+      text.match(/transaction\s+number\s+is\s+([A-Z0-9]{6,25})/i) ||
+      text.match(/\/receipt\/([A-Z0-9]+)/i) ||
       text.match(/\b(DGO[A-Z0-9]{6,15})\b/i) ||
+      text.match(/\b(DH[A-Z0-9]{6,15})\b/i) ||
       text.match(/\b(TX[A-Z0-9]{6,15})\b/i);
     if (txMatch) fields.transactionId = (txMatch[1] || txMatch[0]).trim().toUpperCase();
 
     const signMatch = text.match(/(?:-|\+)?\s*([\d,]+\.\d{2})\s*\(?etb\)?/i);
+    const smsTransferredMatch = text.match(/transferred\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)\s+to/i);
     const amtMatch = text.match(/(?:total paid amount|amount|paid amount|net amount)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
     
-    if (signMatch) {
+    if (smsTransferredMatch) {
+      fields.amount = parseFloat(smsTransferredMatch[1].replace(/,/g, ""));
+    } else if (signMatch) {
       fields.amount = parseFloat(signMatch[1].replace(/,/g, ""));
     } else if (amtMatch) {
       fields.amount = parseFloat(amtMatch[1].replace(/,/g, ""));
     }
 
-    const toMatch = text.match(/(?:transaction to|credited party name|to|receiver|payee)[:\s]+([A-Za-z\s.-]+)/i);
-    if (toMatch?.[1]) fields.receiverName = cleanName(toMatch[1]);
+    // Telebirr SMS Service Fee & VAT
+    const feeMatch = text.match(/service\s+fee\s+is\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const vatMatch = text.match(/vat\s+(?:on\s+the\s+service\s+fee\s+)?is\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    let feeSum = 0;
+    if (feeMatch) feeSum += parseFloat(feeMatch[1].replace(/,/g, ""));
+    if (vatMatch) feeSum += parseFloat(vatMatch[1].replace(/,/g, ""));
+    if (feeSum > 0) fields.fees = feeSum;
 
+    // Receiver & Sender Name
+    const smsReceiverMatch = text.match(/to\s+([A-Za-z0-9\s.*()]+?)\s+on\s+\d{1,2}[/-]\d{1,2}[/-]\d{4}/i);
+    const toMatch = text.match(/(?:transaction to|credited party name|to|receiver|payee)[:\s]+([A-Za-z\s.-]+)/i);
+    
+    if (smsReceiverMatch?.[1]) {
+      fields.receiverName = cleanName(smsReceiverMatch[1].replace(/\(\d+.*?\)/, ""));
+    } else if (toMatch?.[1]) {
+      fields.receiverName = cleanName(toMatch[1]);
+    }
+
+    const smsSenderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)(?:\s+You\s+have|\s+transferred|\s*,|\s*\n)/i);
     const senderMatch = text.match(/(?:payer name|from|sender)[:\s]+([A-Za-z\s.-]+)/i);
-    if (senderMatch?.[1]) fields.senderName = cleanName(senderMatch[1]);
+    
+    if (smsSenderMatch?.[1]) {
+      fields.senderName = cleanName(smsSenderMatch[1]);
+    } else if (senderMatch?.[1]) {
+      fields.senderName = cleanName(senderMatch[1]);
+    }
 
   } else if (provider === "dashen") {
-    // 3. Dashen Bank (Amole / IPSS / new confirmation screens)
-    // Run robust line-substring parsing loop
+    // 3. Dashen Bank (Amole / IPSS / DB SuperApp SMS)
+    const smsTxMatch = text.match(/with\s+transaction\s+reference\s+([A-Za-z0-9]{8,26})/i) ||
+      text.match(/\/receipt\/([A-Za-z0-9]+)/i);
+    if (smsTxMatch) {
+      fields.transactionId = smsTxMatch[1].toUpperCase();
+      fields.transferReference = smsTxMatch[1].toUpperCase();
+    }
+
+    const smsSenderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?),?\s+you\s+have\s+successfully\s+transferred/i);
+    if (smsSenderMatch?.[1]) fields.senderName = cleanName(smsSenderMatch[1]);
+
+    const smsSenderAcc = text.match(/from\s+your\s+account\s+([0-9*]{8,18})/i);
+    if (smsSenderAcc?.[1]) fields.senderAccount = smsSenderAcc[1];
+
+    const smsReceiverMatch = text.match(/to\s+([A-Za-z0-9\s.+]+?)\s+on\s+\d{4}-\d{2}-\d{2}/i);
+    if (smsReceiverMatch?.[1]) {
+      const recText = smsReceiverMatch[1];
+      const phoneMatch = recText.match(/(\+?\d{10,13})/);
+      if (phoneMatch) fields.receiverAccount = phoneMatch[1];
+      fields.receiverName = cleanName(recText.replace(/\+?\d{10,13}/, "").replace(/account/i, ""));
+    }
+
+    const smsAmtMatch = text.match(/transferred\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)\s+from/i);
+    if (smsAmtMatch) fields.amount = parseFloat(smsAmtMatch[1].replace(/,/g, ""));
+
+    const dashenCharge = text.match(/service\s+charge\s+is\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const dashenVat = text.match(/vat\s*(?:\(15%\))?\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const dashenDrrf = text.match(/drrf\s*(?:\(5%\))?\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    let dashenFeeSum = 0;
+    if (dashenCharge) dashenFeeSum += parseFloat(dashenCharge[1].replace(/,/g, ""));
+    if (dashenVat) dashenFeeSum += parseFloat(dashenVat[1].replace(/,/g, ""));
+    if (dashenDrrf) dashenFeeSum += parseFloat(dashenDrrf[1].replace(/,/g, ""));
+    if (dashenFeeSum > 0) fields.fees = dashenFeeSum;
+
+    // Run line-substring loop for non-SMS screens
     for (const line of lines) {
       const lowerLine = line.toLowerCase();
 
       // Sender Name extraction
-      if (lowerLine.includes("sender name")) {
+      if (!fields.senderName && lowerLine.includes("sender name")) {
         const val = line.substring(lowerLine.indexOf("sender name") + 11)
           .replace(/^[：:;\-.\s|Il1!+=]+/g, "").trim();
         if (val) fields.senderName = cleanName(val);
       }
 
       // Recipient / Receiver Name extraction
-      if (lowerLine.includes("recipient name") || lowerLine.includes("receiver name") || lowerLine.includes("recipient's name")) {
+      if (!fields.receiverName && (lowerLine.includes("recipient name") || lowerLine.includes("receiver name") || lowerLine.includes("recipient's name"))) {
         const idx = lowerLine.includes("recipient's name") ? lowerLine.indexOf("recipient's name") + 16 :
                     (lowerLine.includes("recipient name") ? lowerLine.indexOf("recipient name") + 14 : lowerLine.indexOf("receiver name") + 13);
         const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").trim();
@@ -267,14 +389,14 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
       }
 
       // Sender Account
-      if (lowerLine.includes("sender account") || lowerLine.includes("sender acc")) {
+      if (!fields.senderAccount && (lowerLine.includes("sender account") || lowerLine.includes("sender acc"))) {
         const idx = lowerLine.includes("sender account") ? lowerLine.indexOf("sender account") + 14 : lowerLine.indexOf("sender acc") + 10;
         const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").replace(/\s+/g, "").trim();
         if (val) fields.senderAccount = val;
       }
 
       // Recipient Account
-      if (lowerLine.includes("recipient account") || lowerLine.includes("recipient acc") || lowerLine.includes("recipient acct") || lowerLine.includes("receiver account") || lowerLine.includes("receiver acc")) {
+      if (!fields.receiverAccount && (lowerLine.includes("recipient account") || lowerLine.includes("recipient acc") || lowerLine.includes("recipient acct") || lowerLine.includes("receiver account") || lowerLine.includes("receiver acc"))) {
         const idx = lowerLine.includes("recipient account") ? lowerLine.indexOf("recipient account") + 17 :
                     lowerLine.includes("recipient acc") ? lowerLine.indexOf("recipient acc") + 13 :
                     lowerLine.includes("recipient acct") ? lowerLine.indexOf("recipient acct") + 14 :
@@ -285,7 +407,7 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
       }
 
       // FT Ref (Transaction Reference 1)
-      if (lowerLine.includes("ft ref") || lowerLine.includes("ref no")) {
+      if (!fields.transactionId && (lowerLine.includes("ft ref") || lowerLine.includes("ref no"))) {
         const idx = lowerLine.includes("ft ref") ? lowerLine.indexOf("ft ref") + 6 : lowerLine.indexOf("ref no") + 6;
         const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").replace(/\s+/g, "").trim();
         if (val && val.length > 5) {
@@ -295,7 +417,7 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
       }
 
       // Transaction Ref (Transaction Reference 2)
-      if (lowerLine.includes("transaction ref") || lowerLine.includes("transaction reference") || lowerLine.includes("txn ref")) {
+      if (!fields.transactionId && (lowerLine.includes("transaction ref") || lowerLine.includes("transaction reference") || lowerLine.includes("txn ref"))) {
         const idx = lowerLine.includes("transaction reference") ? lowerLine.indexOf("transaction reference") + 21 :
                     lowerLine.includes("transaction ref") ? lowerLine.indexOf("transaction ref") + 15 :
                     lowerLine.indexOf("txn ref") + 7;
@@ -307,7 +429,7 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
       }
 
       // Service Charge
-      if (lowerLine.includes("service-charge") || lowerLine.includes("service charge")) {
+      if (!fields.fees && (lowerLine.includes("service-charge") || lowerLine.includes("service charge"))) {
         const idx = lowerLine.includes("service-charge") ? lowerLine.indexOf("service-charge") + 14 : lowerLine.indexOf("service charge") + 14;
         const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").trim();
         const numMatch = val.match(/^([\d,]+(?:\.\d{1,2})?)/);
@@ -327,18 +449,35 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
       }
     }
 
-    // Amount: e.g. "2,000.00 (ETB)" or "amount: 250.00"
-    const signMatch = text.match(/(?:-|\+)?\s*([\d,]+\.\d{2})\s*\(?etb\)?/i);
-    const amtMatch = text.match(/(?:transaction amount|amount|total)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-    
-    if (signMatch) {
-      fields.amount = parseFloat(signMatch[1].replace(/,/g, ""));
-    } else if (amtMatch) {
-      fields.amount = parseFloat(amtMatch[1].replace(/,/g, ""));
+    if (!fields.amount) {
+      const signMatch = text.match(/(?:-|\+)?\s*([\d,]+\.\d{2})\s*\(?etb\)?/i);
+      const amtMatch = text.match(/(?:transaction amount|amount|total)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+      
+      if (signMatch) {
+        fields.amount = parseFloat(signMatch[1].replace(/,/g, ""));
+      } else if (amtMatch) {
+        fields.amount = parseFloat(amtMatch[1].replace(/,/g, ""));
+      }
     }
 
+  } else if (provider === "m-pesa") {
+    // 4. M-Pesa (Safaricom)
+    const txMatch = text.match(/(?:transaction\s+number\s+is|transaction\s+number)\s+([A-Z0-9]{6,25})/i) ||
+      text.match(/\/receipt\/([A-Z0-9]+)/i);
+    if (txMatch) fields.transactionId = txMatch[1].toUpperCase();
+
+    const receiverMatch = text.match(/Dear\s+([A-Za-z\s.-]+?),?\s+you\s+have\s+(?:received|bought)/i);
+    if (receiverMatch?.[1]) fields.receiverName = cleanName(receiverMatch[1]);
+
+    const senderMatch = text.match(/from\s+([A-Za-z0-9\s.-]+?)\s+on\s+\d{1,2}/i);
+    if (senderMatch?.[1]) fields.senderName = cleanName(senderMatch[1]);
+
+    const amtMatch = text.match(/(?:received|bought\s+a\s+Safaricom\s+bundle\s+of)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:birr|etb)?/i) ||
+      text.match(/([\d,]+(?:\.\d{1,2})?)\s+Birr/i);
+    if (amtMatch) fields.amount = parseFloat(amtMatch[1].replace(/,/g, ""));
+
   } else if (provider === "abyssinia") {
-    // 4. Bank of Abyssinia
+    // 5. Bank of Abyssinia
     const txMatch = text.match(/(?:transaction reference|ref no|txn ref)[:\s]*([A-Z0-9]{8,22})/i)
       || text.match(/\b(FT[A-Z0-9]{8,20})\b/i);
     if (txMatch) fields.transactionId = txMatch[1].toUpperCase();
