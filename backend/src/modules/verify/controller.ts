@@ -11,7 +11,7 @@ import {
   scrapeReceiptUrl,
   type ScrapedReceiptData,
 } from "./receipt-scraper.js";
-import { extractReceiptUrl, detectProviderFromName, buildTelebirrReceiptUrl } from "./url-extractor.js";
+import { extractReceiptUrl, detectProviderFromName, buildTelebirrReceiptUrl, buildAwashReceiptUrl } from "./url-extractor.js";
 import { detectBankFromText } from "./bank-rules.js";
 import {
   crossValidate,
@@ -157,6 +157,11 @@ export async function verifyReceipt(
       receiptUrl = buildTelebirrReceiptUrl(aiResult.transactionId);
       logger.info(
         `📱 Telebirr receipt screenshot detected — auto-constructed verification URL: ${receiptUrl}`,
+      );
+    } else if (!receiptUrl && detectedProvider === "awash" && aiResult.transactionId) {
+      receiptUrl = buildAwashReceiptUrl(aiResult.transactionId);
+      logger.info(
+        `📱 Awash receipt screenshot detected — auto-constructed verification URL: ${receiptUrl}`,
       );
     }
 
