@@ -74,6 +74,15 @@ app.use(
   express.static(path.resolve("uploads")),
 );
 
+// Digital Asset Links JSON endpoint for Google Play Store Android App Links
+app.get("/.well-known/assetlinks.json", (_req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.sendFile(path.resolve("public/.well-known/assetlinks.json"));
+});
+
+// Serve public static assets (including /.well-known)
+app.use(express.static(path.resolve("public")));
+
 // ─────────────────────────────────────────────────────────────
 // Routes & Rate Limiting
 // ─────────────────────────────────────────────────────────────
