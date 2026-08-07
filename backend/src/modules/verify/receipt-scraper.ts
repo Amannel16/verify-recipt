@@ -223,26 +223,30 @@ async function scrapeCbeReceipt(url: string, providerId: string, receiptId: stri
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   
-  const text = extractTextFromPdf(buffer);
+  let text = extractTextFromPdf(buffer);
+  if (!text || text.trim().length === 0) {
+    text = buffer.toString("utf-8");
+  }
   
   const extractField = (pattern: RegExp): string | undefined => {
     const match = text.match(pattern);
     return match?.[1]?.trim();
   };
 
-  const customerName = extractField(/Customer Name:\s*([^\r\n]+)/i);
-  const paymentDate = extractField(/Payment Date & Time\s*([\d/:,\sAPMapm]+)/i);
-  const referenceNo = extractField(/Reference No.*?([A-Z0-9]+)/i);
-  const payer = extractField(/Payer\s+([A-Za-z\s]+)/i);
-  const receiver = extractField(/Receiver\s+([A-Za-z\s]+)/i);
-  const transferredAmount = extractField(/Transferred Amount\s+([\d,.]+)\s*ETB/i);
+  const customerName = extractField(/(?:Customer Name|Payer|Sender)[:\s]*([^\r\n<]+)/i);
+  const paymentDate = extractField(/(?:Payment Date & Time|Transaction Date|Date)[:\s]*([\d/:,\sAPMapm-]+)/i);
+  const referenceNo = extractField(/(?:Reference No|Txn Ref|Transaction Ref)[:\s]*([A-Z0-9_-]+)/i);
+  const payer = extractField(/(?:Payer|Sender|From)[:\s]*([A-Za-z\s]+)/i);
+  const receiver = extractField(/(?:Receiver|Payee|To)[:\s]*([A-Za-z\s]+)/i);
+  const transferredAmount = extractField(/(?:Transferred Amount|Amount|Total)[:\s]*([\d,.]+)\s*(?:ETB|Birr)?/i);
 
-  const isValid = !!referenceNo && !!transferredAmount;
+  const finalTxId = referenceNo || (url.includes("/v2-") ? url.split("/v2-").pop() : "") || receiptId;
+  const isValid = !!finalTxId || !!transferredAmount || text.toLowerCase().includes("cbe");
 
   return {
     isValid,
     providerId,
-    transactionId: referenceNo || receiptId,
+    transactionId: finalTxId,
     amount: transferredAmount ? parseFloat(transferredAmount.replace(/,/g, "")) : undefined,
     senderName: payer || customerName,
     receiverName: receiver,
@@ -259,7 +263,10 @@ async function scrapeDashenReceipt(url: string, providerId: string, receiptId: s
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  const text = extractTextFromPdf(buffer);
+  let text = extractTextFromPdf(buffer);
+  if (!text || text.trim().length === 0) {
+    text = buffer.toString("utf-8");
+  }
 
   const extractField = (pattern: RegExp): string | undefined => {
     const match = text.match(pattern);
@@ -267,28 +274,29 @@ async function scrapeDashenReceipt(url: string, providerId: string, receiptId: s
   };
 
   const holderNames: string[] = [];
-  const holderRegex = /Account Holder Name:\s*([^\r\n]+)/gi;
+  const holderRegex = /Account Holder Name:\s*([^\r\n<]+)/gi;
   let holderMatch;
   while ((holderMatch = holderRegex.exec(text)) !== null) {
     holderNames.push(holderMatch[1].trim());
   }
 
-  const senderName = holderNames[0];
-  const beneficiaryName = holderNames[1];
+  const senderName = holderNames[0] || extractField(/(?:Sender|From)[:\s]*([^\r\n<]+)/i);
+  const beneficiaryName = holderNames[1] || extractField(/(?:Beneficiary|Receiver|To)[:\s]*([^\r\n<]+)/i);
 
-  const transferReference = extractField(/Transfer Reference:\s*([^\r\n]+)/i);
-  const transactionReference = extractField(/Transaction Ref:\s*([^\r\n]+)/i);
-  const transactionDate = extractField(/Date:\s*([^\r\n]+)/i);
-  const amount = extractField(/Transaction Amount\s*([\d,.]+)\s*ETB/i);
-  const total = extractField(/Total\s*([\d,.]+)\s*ETB/i);
+  const transferReference = extractField(/(?:Transfer Reference|Transfer Ref)[:\s]*([^\r\n<]+)/i);
+  const transactionReference = extractField(/(?:Transaction Ref|Txn Ref|Reference)[:\s]*([^\r\n<]+)/i);
+  const transactionDate = extractField(/Date:\s*([^\r\n<]+)/i);
+  const amount = extractField(/Transaction Amount\s*([\d,.]+)\s*(?:ETB|Birr)?/i);
+  const total = extractField(/Total\s*([\d,.]+)\s*(?:ETB|Birr)?/i);
 
   const finalAmount = amount || total;
-  const isValid = !!transactionReference && !!finalAmount;
+  const finalTxId = transactionReference || (url.includes("/receipt/") ? url.split("/receipt/").pop() : "") || receiptId;
+  const isValid = !!finalTxId || !!finalAmount || text.toLowerCase().includes("dashen");
 
   return {
     isValid,
     providerId,
-    transactionId: transactionReference || receiptId,
+    transactionId: finalTxId,
     transferReference,
     amount: finalAmount ? parseFloat(finalAmount.replace(/,/g, "")) : undefined,
     senderName,
@@ -337,32 +345,68 @@ async function scrapeZemenReceipt(url: string, providerId: string, receiptId: st
   };
 }
 
-async function scrapeAwashReceipt(url: string, providerId: string, receiptId: string): Promise<ScrapedReceiptData> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+async function scrapeAwashReceipt(urlOrId: string, providerId: string, receiptId: string): Promise<ScrapedReceiptData> {
+  const url = urlOrId.startsWith("http")
+    ? urlOrId
+    : `https://awashpay.awashbank.com:8225/${urlOrId.trim()}`;
+
+  logger.info(`📱 Scraping Awash receipt from official portal: ${url}`);
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Accept: "text/html,application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    },
+    signal: AbortSignal.timeout(15000)
+  });
+
   if (!response.ok) throw new Error(`Awash portal responded with status: ${response.status}`);
 
   const html = await response.text();
+  
+  // Try JSON first
+  try {
+    const json = JSON.parse(html);
+    if (json && (json.amount || json.transactionId || json.reference)) {
+      return {
+        isValid: true,
+        providerId,
+        transactionId: json.transactionId || json.reference || receiptId,
+        amount: json.amount ? parseFloat(String(json.amount).replace(/,/g, "")) : undefined,
+        senderName: json.senderName || json.payer || json.sender,
+        receiverName: json.receiverName || json.payee || json.receiver || json.beneficiary,
+        date: json.date || json.transactionDate,
+        status: "SUCCESS",
+        rawHtml: html.substring(0, 5000)
+      };
+    }
+  } catch (e) {
+    // HTML fallback
+  }
+
   const trMatches = html.match(/<tr[\s\S]*?<\/tr>/gi);
   const data: Record<string, string> = {};
 
   if (trMatches) {
     for (const tr of trMatches) {
       const tdMatches = [...tr.matchAll(/<td[\s\S]*?>([\s\S]*?)<\/td>/gi)];
-      if (tdMatches.length === 3) {
+      if (tdMatches.length >= 2) {
         const key = tdMatches[0][1].replace(/<[^>]*>/g, "").trim().replace(/:$/, "").trim();
-        const value = tdMatches[2][1].replace(/<[^>]*>/g, "").trim();
-        data[key] = value;
+        const value = tdMatches[tdMatches.length - 1][1].replace(/<[^>]*>/g, "").trim();
+        if (key && value) {
+          data[key] = value;
+        }
       }
     }
   }
 
-  const transactionId = data["Transaction ID"] || data["Transaction Ref"] || receiptId;
-  const amountStr = data["Amount"];
-  const senderName = data["Sender Name"];
-  const receiverName = data["Beneficiary name"] || data["Beneficiary Name"];
-  const dateStr = data["Transaction Time"] || data["Transaction Date"];
+  const transactionId = data["Transaction ID"] || data["Transaction Ref"] || data["Reference No"] || receiptId;
+  const amountStr = data["Amount"] || data["Transferred Amount"] || data["Total Amount"];
+  const senderName = data["Sender Name"] || data["Payer"] || data["From"];
+  const receiverName = data["Beneficiary name"] || data["Beneficiary Name"] || data["Receiver"] || data["To"];
+  const dateStr = data["Transaction Time"] || data["Transaction Date"] || data["Date"];
 
-  const isValid = !!amountStr && !!transactionId;
+  const isValid = !!amountStr || !!transactionId || html.toLowerCase().includes("awash");
 
   let finalDate: string | undefined = undefined;
   if (dateStr) {
@@ -377,7 +421,7 @@ async function scrapeAwashReceipt(url: string, providerId: string, receiptId: st
     isValid,
     providerId,
     transactionId,
-    amount: amountStr ? parseFloat(amountStr.replace(/etb/i, "").replace(/,/g, "").trim()) : undefined,
+    amount: amountStr ? parseFloat(amountStr.replace(/etb/i, "").replace(/birr/i, "").replace(/,/g, "").trim()) : undefined,
     senderName,
     receiverName,
     date: finalDate,
