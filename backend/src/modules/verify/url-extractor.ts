@@ -12,7 +12,7 @@ const URL_PATTERNS: Array<{
   {
     provider: "cbe",
     patterns: [
-      /https?:\/\/(?:apps\.)?cbe\.com\.et\/[^\s"'<>]+/gi,
+      /https?:\/\/(?:[a-z0-9-]+\.)*cbe\.com\.et\/[^\s"'<>]+/gi,
       /https?:\/\/(?:www\.)?combanketh\.et\/[^\s"'<>]+/gi,
     ],
   },
@@ -26,7 +26,8 @@ const URL_PATTERNS: Array<{
   {
     provider: "dashen",
     patterns: [
-      /https?:\/\/(?:www\.)?(?:dashenbank|amoleapp)\.com(?:\.et)?\/[^\s"'<>]+/gi,
+      /https?:\/\/(?:[a-z0-9-]+\.)*(?:dashenbank|amoleapp)\.com(?:\.et)?\/[^\s"'<>]+/gi,
+      /https?:\/\/(?:[a-z0-9-]+\.)*dashenbanksc\.com\/[^\s"'<>]+/gi,
       /https?:\/\/ibank\.dashenbank\.com\.et\/[^\s"'<>]+/gi,
     ],
   },
@@ -41,6 +42,7 @@ const URL_PATTERNS: Array<{
   {
     provider: "awash",
     patterns: [
+      /https?:\/\/(?:[a-z0-9-]+\.)*awashbank\.com(?::\d+)?\/[^\s"'<>]+/gi,
       /https?:\/\/(?:www\.)?awashbank\.com(?:\.et)?\/[^\s"'<>]+/gi,
       /https?:\/\/ib\.awashbank\.com\/[^\s"'<>]+/gi,
     ],
@@ -54,7 +56,8 @@ const URL_PATTERNS: Array<{
   {
     provider: "m-pesa",
     patterns: [
-      /https?:\/\/(?:www\.)?mpesa\.safaricom\.et\/[^\s"'<>]+/gi,
+      /https?:\/\/(?:[a-z0-9-]+\.)*mpesa\.safaricom\.et\/[^\s"'<>]+/gi,
+      /https?:\/\/(?:[a-z0-9-]+\.)*safaricom\.et\/[^\s"'<>]+/gi,
     ],
   },
   {
@@ -143,9 +146,9 @@ function extractReceiptIdFromUrl(url: string): string {
 function detectProviderFromUrl(url: string): string {
   const lower = url.toLowerCase();
 
-  if (lower.includes("cbe.com.et") || lower.includes("combanketh")) return "cbe";
+  if (lower.includes("cbe.com.et") || lower.includes("combanketh") || lower.includes("mreciept") || lower.includes("mreceipt")) return "cbe";
   if (lower.includes("ethiotelecom") || lower.includes("telebirr")) return "telebirr";
-  if (lower.includes("dashenbank") || lower.includes("amoleapp")) return "dashen";
+  if (lower.includes("dashenbank") || lower.includes("dashenbanksc") || lower.includes("amoleapp")) return "dashen";
   if (lower.includes("bankofabyssinia") || lower.includes("boabank") || lower.includes("apollo")) return "abyssinia";
   if (lower.includes("awashbank")) return "awash";
   if (lower.includes("zemenbank")) return "zemen";
@@ -186,5 +189,16 @@ export function buildTelebirrReceiptUrl(transactionId: string): string {
   const cleanedId = transactionId.trim().toUpperCase();
   if (!cleanedId) return "";
   return `https://transactioninfo.ethiotelecom.et/receipt/${cleanedId}`;
+}
+
+/**
+ * Constructs the official Awash Bank web verification URL for a given transaction ID.
+ * Format: https://awashpay.awashbank.com:8225/<ID>
+ */
+export function buildAwashReceiptUrl(transactionId: string): string {
+  if (!transactionId || typeof transactionId !== "string") return "";
+  const cleanedId = transactionId.trim();
+  if (!cleanedId) return "";
+  return `https://awashpay.awashbank.com:8225/${cleanedId}`;
 }
 
