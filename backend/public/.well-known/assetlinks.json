@@ -1,0 +1,26 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.GebaAI.myapp",
+      "sha256_cert_fingerprints": [
+        "9D:CC:C6:A3:4B:37:08:EE:D1:38:1E:F1:7C:14:09:17:30:9D:11:2D:60:DC:00:77:C3:92:A6:E3:CC:50:70:00"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.hibrettech.gebaai",
+      "sha256_cert_fingerprints": [
+        "9D:CC:C6:A3:4B:37:08:EE:D1:38:1E:F1:7C:14:09:17:30:9D:11:2D:60:DC:00:77:C3:92:A6:E3:CC:50:70:00"
+      ]
+    }
+  }
+]
