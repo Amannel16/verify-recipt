@@ -23,7 +23,7 @@
     "android": {
       "usesCleartextTraffic": true,
       "permissions": [],
-      "package": "com.hibrettech.gebaai"
+      "package": "com.GebaAI.myapp"
     },
     "web": {
       "favicon": "./assets/images/icon_old_backup.png"
