@@ -55,15 +55,15 @@ async function analyzeWithGeminiVision(
     };
     const mimeType = mimeMap[ext] ?? "image/jpeg";
 
-    const prompt = `You are a payment receipt verification AI specialized in Ethiopian wallets and bank transfer screenshots. Analyze this receipt image/screenshot and extract the payment information.
+    const prompt = `You are a payment receipt verification AI specialized in Ethiopian wallets and bank transfer screenshots, including official PDF receipts, in-app confirmation screens, and SMS transaction notification screenshots. Analyze this receipt image/screenshot and extract the payment information.
 
 First, identify the receipt format:
-- **telebirr**: Look for "telebirr" logo, Ethio Telecom branding, or transaction references starting with "DGO", "TX", or alphanumeric strings under "Transaction Number:". Telebirr receipt screenshots do not display full verification URLs directly on the image; ensure "transactionId" (e.g. DGO37754HD) is accurately extracted.
-- **CBE**: Look for "Commercial Bank of Ethiopia" or "CBE" logos/text. The transaction reference (Txn Ref / Ref No) usually starts with "FT".
+- **telebirr**: Look for "telebirr" logo, Ethio Telecom branding, or SMS messages from "127" ("Dear [Payer] You have transferred ETB [Amount] to [Payee]... Your transaction number is [ID]... To download your payment information please click this link: https://transactioninfo.ethiotelecom.et/receipt/[ID]").
+- **CBE**: Look for "Commercial Bank of Ethiopia" or "CBE" logos/text, or SMS messages from "CBE" ("Dear [Payer] A debit transaction of ETB [Amount] has occurred on your account [Account]... Service charge... total of ETB [Total]... https://mreciept.cbe.com.et/[v2-ID]"). The transaction reference usually starts with "FT" or is in the receipt link path (v2-...).
 - **CBE Birr**: Look for "CBE Birr" branding, yellow/green colors, or similar layout.
 - **Bank of Abyssinia (BoA)**: Look for "Bank of Abyssinia", "BoA", or "Apollo" branding.
-- **Dashen Bank**: Look for "Dashen Bank", "Dashen", or "Dashen Bank Super App" branding. Dashen receipts usually list both a Transaction Reference (e.g., "075IPSS...") and a Transfer Reference / IPSS Reference (e.g., "IPSS...").
-- **M-Pesa**: Look for "M-Pesa" or "Safaricom" branding.
+- **Dashen Bank**: Look for "Dashen Bank", "Dashen", or "Dashen Bank Super App" SMS ("Dear [Payer], you have successfully transferred ETB [Amount] from your account [Account] to [Payee] account [PayeeAccount]... with transaction reference [Ref]... Download receipt: https://receipts.dashenbanksc.com/receipt/[Ref]").
+- **M-Pesa**: Look for "M-Pesa", "Safaricom" branding, or SMS from "MPESA" ("Dear [Payee], you have received [Amount] Birr from [Payer]... Transaction number is [ID]... Get your receipt here: https://m-pesabusiness.safaricom.et/receipt/[ID]").
 
 Analyze the image for signs of image tampering or fraud:
 - Check if the transaction ID/references, amount, fees, total, sender/receiver names, or accounts font style, weight, or size matches the surrounding text.
