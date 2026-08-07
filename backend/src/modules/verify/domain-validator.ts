@@ -13,6 +13,8 @@ const TRUSTED_DOMAINS: Record<string, string[]> = {
   cbe: [
     "cbe.com.et",
     "apps.cbe.com.et",
+    "mreciept.cbe.com.et",
+    "mreceipt.cbe.com.et",
     "cbebirr.cbe.com.et",
     "combanketh.et",
     "www.cbe.com.et",
@@ -25,6 +27,7 @@ const TRUSTED_DOMAINS: Record<string, string[]> = {
   ],
   dashen: [
     "dashenbanksc.com",
+    "receipts.dashenbanksc.com",
     "dashenbank.com.et",
     "ibank.dashenbank.com.et",
     "www.dashenbanksc.com",
@@ -40,6 +43,7 @@ const TRUSTED_DOMAINS: Record<string, string[]> = {
   awash: [
     "awashbank.com",
     "awashbank.com.et",
+    "awashpay.awashbank.com",
     "ib.awashbank.com",
     "www.awashbank.com",
     "www.awashbank.com.et",
@@ -52,6 +56,7 @@ const TRUSTED_DOMAINS: Record<string, string[]> = {
   ],
   "m-pesa": [
     "mpesa.safaricom.et",
+    "m-pesabusiness.safaricom.et",
     "safaricom.et",
     "www.safaricom.et",
   ],
