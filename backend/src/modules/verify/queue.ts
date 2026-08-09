@@ -1,5 +1,5 @@
 import { logger } from "../../utils/logger/logger.js";
-import { socketServer } from "../../socket/index.js";
+import { realTimeServiceEmiter } from "../../socket/service.js";
 import { EvidenceInput, V2VerificationResult } from "./types.js";
 
 export async function addVerificationJobToQueue(
@@ -22,12 +22,13 @@ export async function addVerificationJobToQueue(
       logger.info(`⚙️ Processing async verification job ${jobId}...`);
       const result = await processFn(userId, input, false);
       logger.info(`✅ Async job ${jobId} completed. Pushing socket event...`);
-      socketServer.emitToUser(userId, "verification_completed", { jobId, result });
+      await realTimeServiceEmiter(userId, "verification_completed", { jobId, result });
     } catch (err: any) {
       logger.error(`❌ Async job ${jobId} failed: ${err.message}`);
-      socketServer.emitToUser(userId, "verification_failed", { jobId, error: err.message });
+      await realTimeServiceEmiter(userId, "verification_failed", { jobId, error: err.message });
     }
   });
+
 
   return { jobId, status: "PROCESSING" };
 }

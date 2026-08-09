@@ -40,7 +40,7 @@ export async function analyzeFraudSignals(
         provider: tx.provider,
         transactionId: tx.transactionId,
         userId: { not: userId },
-      },
+      } as any,
     });
 
     if (existingTx) {

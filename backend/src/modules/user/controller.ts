@@ -215,11 +215,11 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
 
     logger.info(`🗑️ User requested account deletion: ${userId}`);
 
-    // Delete user's verifications, notifications, and subscriptions in transaction
+    // Delete user's verifications, notifications, and payments in transaction
     await db.$transaction([
       db.verification.deleteMany({ where: { userId } }),
       db.notification.deleteMany({ where: { userId } }),
-      db.subscription.deleteMany({ where: { userId } }),
+      db.payment.deleteMany({ where: { userId } }),
       db.user.delete({ where: { id: userId } }),
     ]);
 
@@ -275,9 +275,10 @@ export async function webDeleteAccount(req: Request, res: Response): Promise<voi
     await db.$transaction([
       db.verification.deleteMany({ where: { userId: user.id } }),
       db.notification.deleteMany({ where: { userId: user.id } }),
-      db.subscription.deleteMany({ where: { userId: user.id } }),
+      db.payment.deleteMany({ where: { userId: user.id } }),
       db.user.delete({ where: { id: user.id } }),
     ]);
+
 
     logger.info(`✅ Account and all associated data permanently deleted for ${normalizedEmail}`);
 

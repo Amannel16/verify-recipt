@@ -276,7 +276,7 @@ export class ProviderRegistry {
       identifierTypes: ["TRANSACTION_ID", "REFERENCE"],
       txIdPatterns: [/ZMN[A-Z0-9]{8,14}/i, /[0-9]{10,16}/],
       referencePatterns: [/REF[A-Z0-9]{8,14}/i],
-      accountPatterns: /[0-9]{12,14}/,
+      accountPatterns: [/[0-9]{12,14}/],
       phonePatterns: [/^(?:\+251|251|0)?9[0-9]{8}$/],
       smsPatterns: [/zemen bank/i],
       ussdPatterns: [/\*896\#/i],

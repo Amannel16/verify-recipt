@@ -47,7 +47,6 @@ export async function processV2Verification(
   if (input.filePath) {
     const tPrep = Date.now();
     try {
-      receiptHash = await generateReceiptHash(input.filePath);
       const preprocessed = await preprocessReceiptImage(input.filePath);
       recordStage("PREPROCESSING", "SUCCESS", Date.now() - tPrep);
 
@@ -74,6 +73,14 @@ export async function processV2Verification(
         sourceType: evidenceType,
         extractionConfidence: aiResult.confidence / 100,
       };
+
+      receiptHash = generateReceiptHash(
+        normalizedTx.provider || null,
+        normalizedTx.amount || null,
+        normalizedTx.sender?.name || null,
+        normalizedTx.receiver?.name || null,
+        normalizedTx.date || null
+      ) || undefined;
     } catch (err: any) {
       recordStage("PREPROCESSING", "WARNING", Date.now() - tPrep, err.message);
     }
@@ -149,7 +156,13 @@ export async function processV2Verification(
     Math.round(normalizedTx.extractionConfidence * 100),
     domainValidationResult,
     crossValResult,
-    { isDuplicate: duplicateInfo.isDuplicate, reasons: [duplicateInfo.details || ""] },
+    {
+      isDuplicate: duplicateInfo.isDuplicate,
+      duplicateOf: duplicateInfo.duplicateOfId || null,
+      riskLevel: duplicateInfo.isDuplicate ? "HIGH" : "NONE",
+      reasons: [duplicateInfo.details || ""],
+      matchingRecords: [],
+    },
     normalizedTx.date || null,
     normalizedTx.amount || null,
     !!receiptUrl
@@ -187,7 +200,7 @@ export async function processV2Verification(
       riskAssessment: riskAssessment as any,
       isDuplicate: duplicateInfo.isDuplicate,
       receiptHash,
-    },
+    } as any,
   });
 
   const totalDuration = Date.now() - startTime;
