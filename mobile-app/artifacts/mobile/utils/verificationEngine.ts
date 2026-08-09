@@ -84,18 +84,22 @@ export async function analyzeReceipt(
   const data = response.data;
   const status = ((data.status as string) ?? "SUSPICIOUS").toLowerCase() as VerificationStatus;
 
+  const normTx = data.normalizedTransaction as any;
+  const rawTxId = (data.transactionId as string) || normTx?.transactionId;
+  const cleanTxId = (rawTxId && !rawTxId.startsWith("v2-")) ? rawTxId : (normTx?.transactionId || "N/A");
+
   return {
     id: (data.id as string) ?? "",
     status,
     confidence: (data.confidence as number) ?? 0,
-    transactionId: (data.transactionId as string) ?? "N/A",
-    senderName: (data.senderName as string) ?? "Unknown",
-    receiverName: (data.receiverName as string) ?? "Unknown",
-    amount: (data.amount as number) ?? 0,
-    currency: (data.currency as string) ?? "ETB",
-    date: (data.date as string) ?? new Date().toLocaleDateString(),
-    time: (data.time as string) ?? new Date().toLocaleTimeString(),
-    paymentMethod: (data.paymentMethod as string) ?? "Unknown",
+    transactionId: cleanTxId,
+    senderName: (data.senderName as string) ?? normTx?.sender?.name ?? "Unknown",
+    receiverName: (data.receiverName as string) ?? normTx?.receiver?.name ?? "Unknown",
+    amount: (data.amount as number) ?? normTx?.amount ?? 0,
+    currency: (data.currency as string) ?? normTx?.currency ?? "ETB",
+    date: (data.date as string) ?? normTx?.date ?? new Date().toLocaleDateString(),
+    time: (data.time as string) ?? normTx?.time ?? new Date().toLocaleTimeString(),
+    paymentMethod: (data.paymentMethod as string) ?? normTx?.provider?.toUpperCase() ?? "Unknown",
     reasons: ((data.reasons as string[]) ?? []).filter(
       (r) => !/gemini|api failure|api key|vision/i.test(r)
     ),
