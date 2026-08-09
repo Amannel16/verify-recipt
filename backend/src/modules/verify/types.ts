@@ -46,6 +46,7 @@ export interface NormalizedTransaction {
   paymentNetwork?: string;
   verificationAuthority?: string;
 
+  receiptId?: string;
   transactionId?: string;
   referenceNumber?: string;
 
