@@ -8,6 +8,7 @@ import { preprocessReceiptImage, type PreprocessedImages } from "@/src/utils/hel
 export interface ReceiptAnalysisResult {
   status: "APPROVED" | "SUSPICIOUS" | "REJECTED";
   confidence: number;
+  receiptId?: string | null;
   transactionId: string | null;
   senderName: string | null;
   receiverName: string | null;
@@ -74,7 +75,8 @@ Analyze the image for signs of image tampering or fraud:
 
 RESPOND ONLY WITH A JSON OBJECT (no markdown, no code fences), using this exact structure:
 {
-  "transactionId": "extracted transaction/reference ID or null",
+  "receiptId": "extracted receipt URL ID token (e.g. v2-hfHCxGiuGM...) or null",
+  "transactionId": "extracted financial transaction reference ID (e.g. FT26221YJ575) or null",
   "transferReference": "extracted transfer reference (e.g. IPSS reference for Dashen) or null",
   "senderName": "sender/payer name or null",
   "senderAccount": "sender account number or null",
