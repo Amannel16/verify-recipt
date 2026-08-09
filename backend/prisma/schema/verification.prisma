@@ -8,6 +8,7 @@ model Verification {
   confidence          Int                @default(0)
   evidenceType        String             @default("BANK_RECEIPT")
   provider            String?
+  receiptId           String?
   transactionId       String?
   transferReference   String?
   senderName          String?
