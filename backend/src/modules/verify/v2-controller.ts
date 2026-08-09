@@ -60,9 +60,14 @@ export async function processV2Verification(
       rawText = aiResult.rawExtractedText || rawText;
       receiptUrl = qrUrl || aiResult.receiptUrl || receiptUrl;
 
+      const cbeReceiptToken = receiptUrl?.includes("/v2-") ? `v2-${receiptUrl.split("/v2-").pop()}` : undefined;
+      const extractedReceiptId = aiResult.receiptId || cbeReceiptToken || (aiResult.transactionId?.startsWith("v2-") ? aiResult.transactionId : undefined);
+      const extractedTxId = aiResult.transactionId?.startsWith("v2-") ? undefined : aiResult.transactionId || undefined;
+
       normalizedTx = {
         provider: aiResult.paymentMethod ? aiResult.paymentMethod.toLowerCase() : undefined,
-        transactionId: aiResult.transactionId || undefined,
+        receiptId: extractedReceiptId,
+        transactionId: extractedTxId,
         sender: { name: aiResult.senderName || undefined, account: aiResult.senderAccount || undefined },
         receiver: { name: aiResult.receiverName || undefined, account: aiResult.receiverAccount || undefined },
         amount: aiResult.amount || undefined,
@@ -184,6 +189,7 @@ export async function processV2Verification(
       confidence: riskAssessment.totalScore,
       evidenceType,
       provider: detectedProviderId,
+      receiptId: normalizedTx.receiptId,
       transactionId: normalizedTx.transactionId,
       senderName: normalizedTx.sender?.name,
       receiverName: normalizedTx.receiver?.name,
