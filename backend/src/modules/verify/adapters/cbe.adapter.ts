@@ -26,8 +26,11 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
   }
 
   async buildReceiptVerificationUrl(transaction: NormalizedTransaction): Promise<string | null> {
-    if (!transaction.transactionId) return null;
-    return `https://mreciept.cbe.com.et/receipt/${transaction.transactionId}`;
+    const targetId = transaction.receiptId || transaction.transactionId;
+    if (!targetId) return null;
+    if (targetId.startsWith("http://") || targetId.startsWith("https://")) return targetId;
+    if (targetId.startsWith("v2-")) return `https://mreciept.cbe.com.et/${targetId}`;
+    return `https://mreciept.cbe.com.et/receipt/${targetId}`;
   }
 
   async verifyOfficialTransaction(transaction: NormalizedTransaction): Promise<{
@@ -41,7 +44,8 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
       return { verified: false, error: "No receipt verification URL available for CBE" };
     }
 
-    const scraped = await scrapeReceiptUrl(url, "cbe", transaction.transactionId || "");
+    const inputId = transaction.receiptId || transaction.transactionId || "";
+    const scraped = await scrapeReceiptUrl(url, "cbe", inputId);
     if (!scraped || !scraped.isValid) {
       return { verified: false, error: scraped?.error || "CBE official portal lookup failed" };
     }
@@ -50,7 +54,8 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
       verified: true,
       data: {
         provider: "cbe",
-        transactionId: scraped.transactionId,
+        receiptId: scraped.receiptId || transaction.receiptId,
+        transactionId: scraped.transactionId || (transaction.transactionId?.startsWith("FT") ? transaction.transactionId : undefined),
         amount: scraped.amount,
         sender: { name: scraped.senderName, account: scraped.senderAccount },
         receiver: { name: scraped.receiverName, account: scraped.receiverAccount },
