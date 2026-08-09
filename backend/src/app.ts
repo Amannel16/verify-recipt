@@ -12,7 +12,10 @@ import subscriptionRoutes from "./modules/subscription/route.js";
 import notificationRoutes from "./modules/notification/route.js";
 import authRoutes from "./modules/auth/route.js";
 
+import v2VerifyRoutes from "./modules/verify/v2-route.js";
+
 import { securityHeadersMiddleware } from "./middlewares/security-headers.js";
+
 import {
   authRateLimiter,
   verifyRateLimiter,
@@ -285,8 +288,10 @@ app.get("/delete-account", (_req, res) => {
 app.use("/api/user", userRoutes);
 app.use("/api/auth", authRateLimiter, authRoutes);
 app.use("/api/verify", verifyRateLimiter, verifyRoutes);
+app.use("/api/v2/verify", v2VerifyRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/notification", notificationRoutes);
+
 
 // ─────────────────────────────────────────────────────────────
 // Error Handling

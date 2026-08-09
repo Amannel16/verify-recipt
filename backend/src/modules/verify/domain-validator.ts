@@ -130,6 +130,21 @@ function normalizeDomain(hostname: string): string {
 }
 
 /**
+ * Checks if a hostname resolves to a private, loopback, or cloud metadata IP range (SSRF protection).
+ */
+function isSsrfTarget(hostname: string): boolean {
+  const norm = hostname.toLowerCase();
+  if (norm === "localhost" || norm === "127.0.0.1" || norm === "::1" || norm === "169.254.169.254") {
+    return true;
+  }
+  // Private IPv4 ranges
+  if (/^10\./.test(norm) || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(norm) || /^192\.168\./.test(norm)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Extracts the hostname from a URL string safely.
  * Returns null if the URL is malformed.
  */
@@ -141,6 +156,7 @@ function extractHostname(url: string): string | null {
     return null;
   }
 }
+
 
 /**
  * Checks if a hostname matches any entry in a bank's trusted domain list.

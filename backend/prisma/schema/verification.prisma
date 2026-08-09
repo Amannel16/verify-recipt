@@ -4,13 +4,18 @@ model Verification {
   id                  String             @id @default(uuid())
   userId              String
   status              VerificationStatus
+  verdict             String?            // V2 verdict: VERIFIED | HIGH_CONFIDENCE | SUSPICIOUS | HIGH_RISK | REJECTED | UNVERIFIABLE
   confidence          Int                @default(0)
+  evidenceType        String             @default("BANK_RECEIPT")
+  provider            String?
   transactionId       String?
   transferReference   String?
   senderName          String?
   senderAccount       String?
+  senderPhone         String?
   receiverName        String?
   receiverAccount     String?
+  receiverPhone       String?
   amount              Float?
   fees                Float?
   totalAmount         Float?
@@ -23,18 +28,23 @@ model Verification {
   imageUrl            String?
   receiptUrl          String?
 
-  // Cross-validation data stored as JSON
-  scrapedData         Json?
-  crossValidation     Json?
-
-  // Security analysis data stored as JSON
-  domainValidation    Json?
-  riskAssessment      Json?
+  // V2 Structured Payload Storage
+  normalizedTransaction Json?
+  fraudSignals          Json?
+  timeline              Json?
+  scrapedData           Json?
+  crossValidation       Json?
+  domainValidation      Json?
+  riskAssessment        Json?
 
   // Duplicate detection
   isDuplicate         Boolean            @default(false)
   duplicateOf         String?
   receiptHash         String?
+
+  // Optional link to Provider Namespace Transaction Record
+  transactionRefId    String?
+  transaction         Transaction?       @relation(fields: [transactionRefId], references: [id], onDelete: SetNull)
 
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
@@ -43,6 +53,7 @@ model Verification {
 
   @@index([userId])
   @@index([transactionId])
+  @@index([provider])
   @@index([receiptHash])
   @@index([createdAt])
   @@map("verifications")
@@ -53,4 +64,4 @@ enum VerificationStatus {
   APPROVED
   SUSPICIOUS
   REJECTED
-}
+}

@@ -1,0 +1,40 @@
+model Transaction {
+  id                     String   @id @default(cuid())
+  provider               String
+  identifierType         String
+  identifierValue        String
+
+  receiptIssuer          String?
+  originProvider         String?
+  destinationInstitution String?
+  paymentNetwork         String?
+  verificationAuthority  String?
+
+  senderName             String?
+  senderAccount          String?
+  senderPhone            String?
+
+  receiverName           String?
+  receiverAccount        String?
+  receiverPhone          String?
+
+  amount                 Float?
+  fee                    Float?
+  totalAmount            Float?
+  currency               String?  @default("ETB")
+
+  transactionDate        DateTime?
+
+  officialStatus         String?
+  officialVerified       Boolean  @default(false)
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  verifications          Verification[]
+
+  @@unique([provider, identifierType, identifierValue])
+  @@index([identifierValue])
+  @@index([provider])
+  @@map("transactions")
+}

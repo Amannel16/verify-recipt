@@ -214,14 +214,39 @@ export default function ScanScreen() {
 
               <TouchableOpacity
                 style={[styles.optionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => Alert.alert("Coming Soon", "PDF import will be available in a future update.")}
+                onPress={() => {
+                  Alert.prompt(
+                    "Verify SMS Text",
+                    "Paste raw SMS or USSD text from Telebirr, CBE Birr, M-Pesa, or bank:",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Verify Text",
+                        onPress: async (pastedText) => {
+                          if (!pastedText) return;
+                          setPhase("analyzing");
+                          try {
+                            const { verifyV2Evidence } = await import("@/utils/v2-api");
+                            const v2Res = await verifyV2Evidence({ text: pastedText, quickMode: true });
+                            setResultId(v2Res.verificationId);
+                            setPhase("done");
+                          } catch (err: any) {
+                            setPhase("idle");
+                            Alert.alert("SMS Verification Error", err.message);
+                          }
+                        },
+                      },
+                    ],
+                    "plain-text"
+                  );
+                }}
                 activeOpacity={0.75}
               >
                 <View style={[styles.optionIcon, { backgroundColor: colors.warning + "15" }]}>
-                  <Ionicons name="document-outline" size={28} color={colors.warning} />
+                  <Ionicons name="chatbox-ellipses-outline" size={28} color={colors.warning} />
                 </View>
-                <Text style={[styles.optionLabel, { color: colors.foreground }]}>PDF</Text>
-                <Text style={[styles.optionSub, { color: colors.mutedForeground }]}>Import receipt</Text>
+                <Text style={[styles.optionLabel, { color: colors.foreground }]}>SMS / Text</Text>
+                <Text style={[styles.optionSub, { color: colors.mutedForeground }]}>Paste transaction text</Text>
               </TouchableOpacity>
             </View>
           </>

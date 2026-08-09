@@ -361,3 +361,19 @@ export function calculateRiskScore(
     summary,
   };
 }
+
+export function mapToV2Verdict(
+  totalScore: number,
+  isDuplicate: boolean,
+  hasOfficialMatch: boolean,
+  isPortalUnavailable?: boolean,
+): "VERIFIED" | "HIGH_CONFIDENCE" | "SUSPICIOUS" | "HIGH_RISK" | "REJECTED" | "UNVERIFIABLE" {
+  if (isDuplicate) return "REJECTED";
+  if (isPortalUnavailable) return "UNVERIFIABLE";
+  if (hasOfficialMatch && totalScore >= 90) return "VERIFIED";
+  if (totalScore >= 75) return "HIGH_CONFIDENCE";
+  if (totalScore >= 50) return "SUSPICIOUS";
+  if (totalScore >= 25) return "HIGH_RISK";
+  return "REJECTED";
+}
+
