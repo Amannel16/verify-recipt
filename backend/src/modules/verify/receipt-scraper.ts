@@ -5,6 +5,7 @@ import zlib from "node:zlib";
 export interface ScrapedReceiptData {
   isValid: boolean;
   providerId: string;
+  receiptId?: string;
   transactionId?: string;
   transferReference?: string;
   amount?: number;
@@ -216,43 +217,58 @@ function parseZemenDate(dateStr: string): string | undefined {
 // Scraper Functions
 // ==========================================
 
-async function scrapeCbeReceipt(url: string, providerId: string, receiptId: string): Promise<ScrapedReceiptData> {
+async function scrapeCbeReceipt(url: string, providerId: string, inputId: string): Promise<ScrapedReceiptData> {
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`CBE portal responded with status: ${response.status}`);
   
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   
-  let text = extractTextFromPdf(buffer);
-  if (!text || text.trim().length === 0) {
-    text = buffer.toString("utf-8");
+  let rawText = extractTextFromPdf(buffer);
+  if (!rawText || rawText.trim().length === 0) {
+    rawText = buffer.toString("utf-8");
   }
+
+  // Strip CSS <style> blocks, <script> blocks, and HTML tags to prevent font names (e.g. Color Emoji) from matching
+  const cleanText = rawText
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   
   const extractField = (pattern: RegExp): string | undefined => {
-    const match = text.match(pattern);
+    const match = cleanText.match(pattern);
     return match?.[1]?.trim();
   };
 
-  const customerName = extractField(/(?:Customer Name|Payer|Sender)[:\s]*([^\r\n<]+)/i);
+  const referenceNo = extractField(/(?:Reference No|Txn Ref|Transaction Ref|Ref No|FT No)[:\s]*([A-Z0-9_-]+)/i) ||
+                      extractField(/(FT[A-Z0-9]{8,14})/i);
+  const customerName = extractField(/(?:Customer Name|Payer|Sender|From)[:\s]*([A-Za-z\s]+?)(?:\s+(?:To|Receiver|Payee|Amount|Date)|$)/i);
+  const receiverName = extractField(/(?:Receiver|Payee|To|Beneficiary)[:\s]*([A-Za-z\s]+?)(?:\s+(?:Amount|Date|Ref|Status)|$)/i);
   const paymentDate = extractField(/(?:Payment Date & Time|Transaction Date|Date)[:\s]*([\d/:,\sAPMapm-]+)/i);
-  const referenceNo = extractField(/(?:Reference No|Txn Ref|Transaction Ref)[:\s]*([A-Z0-9_-]+)/i);
-  const payer = extractField(/(?:Payer|Sender|From)[:\s]*([A-Za-z\s]+)/i);
-  const receiver = extractField(/(?:Receiver|Payee|To)[:\s]*([A-Za-z\s]+)/i);
   const transferredAmount = extractField(/(?:Transferred Amount|Amount|Total)[:\s]*([\d,.]+)\s*(?:ETB|Birr)?/i);
 
-  const finalTxId = referenceNo || (url.includes("/v2-") ? url.split("/v2-").pop() : "") || receiptId;
-  const isValid = !!finalTxId || !!transferredAmount || text.toLowerCase().includes("cbe");
+  // Extract receipt ID from URL token (e.g. "v2-hfHCxGiuGMJrEq78pDzZ")
+  const urlToken = url.includes("/v2-") ? url.split("/v2-").pop() : url.split("/").pop();
+  const cbeReceiptId = urlToken || inputId;
+  const cbeTxId = referenceNo || (inputId.startsWith("FT") ? inputId : undefined);
+
+  const isValid = !!cbeTxId || !!cbeReceiptId || !!transferredAmount || cleanText.toLowerCase().includes("cbe");
+
+  logger.info(`🏦 CBE Scraped Data: receiptId=${cbeReceiptId}, txId=${cbeTxId || "N/A"}, amount=${transferredAmount}, sender=${customerName}, receiver=${receiverName}`);
 
   return {
     isValid,
     providerId,
-    transactionId: finalTxId,
+    receiptId: cbeReceiptId,
+    transactionId: cbeTxId,
     amount: transferredAmount ? parseFloat(transferredAmount.replace(/,/g, "")) : undefined,
-    senderName: payer || customerName,
-    receiverName: receiver,
+    senderName: customerName,
+    receiverName: receiverName,
     date: paymentDate ? parseCbeDate(paymentDate) : undefined,
     status: isValid ? "SUCCESS" : "FAILED",
-    rawHtml: text.substring(0, 5000)
+    rawHtml: cleanText.substring(0, 5000)
   };
 }
 
