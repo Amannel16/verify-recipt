@@ -289,25 +289,43 @@ export function crossValidate(
     );
   }
 
-  // 4. Transaction ID comparison
-  const txnIdMatch =
-    aiData.transactionId != null &&
-    scrapedData.transactionId != null &&
-    aiData.transactionId.toLowerCase() === scrapedData.transactionId.toLowerCase();
-  fieldMatches.push({
-    field: "Transaction ID",
-    aiValue: aiData.transactionId,
-    scrapedValue: scrapedData.transactionId ?? null,
-    matches: txnIdMatch,
-    confidence: txnIdMatch ? 100 : 0,
-    note: txnIdMatch
-      ? "Transaction IDs match exactly"
-      : "Transaction IDs differ or one is missing",
-  });
-  if (!txnIdMatch && aiData.transactionId && scrapedData.transactionId) {
-    discrepancies.push(
-      `Transaction ID mismatch: "${aiData.transactionId}" vs "${scrapedData.transactionId}"`,
-    );
+  // 4. Transaction ID comparison (semantic type-aware)
+  const hasBothTxIds = Boolean(aiData.transactionId && scrapedData.transactionId);
+  const txnIdMatch = hasBothTxIds && aiData.transactionId?.toLowerCase() === scrapedData.transactionId?.toLowerCase();
+  
+  if (hasBothTxIds) {
+    fieldMatches.push({
+      field: "Transaction ID",
+      aiValue: aiData.transactionId,
+      scrapedValue: scrapedData.transactionId,
+      matches: txnIdMatch,
+      confidence: txnIdMatch ? 100 : 0,
+      note: txnIdMatch ? "Transaction IDs match exactly" : "Transaction IDs differ between receipt and official record",
+    });
+    if (!txnIdMatch) {
+      discrepancies.push(
+        `Transaction ID mismatch: "${aiData.transactionId}" vs "${scrapedData.transactionId}"`,
+      );
+    }
+  } else if (scrapedData.receiptId) {
+    // Portal verified via receipt token/URL ID
+    fieldMatches.push({
+      field: "Transaction ID",
+      aiValue: aiData.transactionId,
+      scrapedValue: null,
+      matches: true,
+      confidence: 85,
+      note: "Receipt URL token verified on portal",
+    });
+  } else {
+    fieldMatches.push({
+      field: "Transaction ID",
+      aiValue: aiData.transactionId,
+      scrapedValue: scrapedData.transactionId ?? null,
+      matches: false,
+      confidence: 0,
+      note: "Transaction ID missing from scraped portal data",
+    });
   }
 
   // 5. Compute overall score
