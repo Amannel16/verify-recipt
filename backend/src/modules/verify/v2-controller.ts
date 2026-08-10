@@ -100,29 +100,33 @@ export async function processV2Verification(
     if (parsedUssd) normalizedTx = { ...normalizedTx, ...parsedUssd };
   }
 
-  // 4. Provider Fingerprint
+  let domainValidationResult: any = null;
+  let officialResult: any = null;
+
+  // 4. Domain Validation & Fingerprint
   const tFp = Date.now();
-  const fingerprint = await detectProviderFingerprint(input, rawText, receiptUrl || undefined);
-  const detectedProviderId = fingerprint.topProvider || normalizedTx.provider || "cbe";
-  normalizedTx.provider = detectedProviderId;
-  recordStage("PROVIDER_DETECTION", "SUCCESS", Date.now() - tFp, `Provider: ${detectedProviderId} (${Math.round(fingerprint.topConfidence * 100)}%)`);
-
-  // 5. Domain Validation & Official Portal Verification
-  let domainValidationResult = null;
-  let officialResult = null;
-
   if (receiptUrl) {
-    const tDomain = Date.now();
-    domainValidationResult = validateDomain(receiptUrl, detectedProviderId);
-    recordStage("DOMAIN_VALIDATION", domainValidationResult.isTrusted ? "SUCCESS" : "FAILED", Date.now() - tDomain);
+    domainValidationResult = validateDomain(receiptUrl, normalizedTx.provider || null);
+  }
 
-    if (domainValidationResult.isTrusted && !quickMode) {
-      const tOff = Date.now();
-      const providerEntry = providerRegistry.getProvider(detectedProviderId);
-      if (providerEntry?.adapter) {
-        officialResult = await providerEntry.adapter.verifyOfficialTransaction(normalizedTx);
-        recordStage("OFFICIAL_VERIFICATION", officialResult.verified ? "SUCCESS" : "WARNING", Date.now() - tOff);
-      }
+  const fingerprint = await detectProviderFingerprint(input, rawText, receiptUrl || undefined);
+  let detectedProviderId = domainValidationResult?.matchedProvider || fingerprint.topProvider || normalizedTx.provider || "cbe";
+  
+  // If transaction ID starts with "FT", force provider to CBE
+  if (normalizedTx.transactionId?.toUpperCase().startsWith("FT")) {
+    detectedProviderId = "cbe";
+  }
+
+  normalizedTx.provider = detectedProviderId;
+  recordStage("PROVIDER_DETECTION", "SUCCESS", Date.now() - tFp, `Provider: ${detectedProviderId}`);
+
+  // 5. Official Portal Verification
+  if (receiptUrl && domainValidationResult?.isTrusted && !quickMode) {
+    const tOff = Date.now();
+    const providerEntry = providerRegistry.getProvider(detectedProviderId);
+    if (providerEntry?.adapter) {
+      officialResult = await providerEntry.adapter.verifyOfficialTransaction(normalizedTx);
+      recordStage("OFFICIAL_VERIFICATION", officialResult.verified ? "SUCCESS" : "WARNING", Date.now() - tOff);
     }
   }
 
