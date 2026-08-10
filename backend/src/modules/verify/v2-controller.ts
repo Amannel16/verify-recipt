@@ -189,7 +189,6 @@ export async function processV2Verification(
       confidence: riskAssessment.totalScore,
       evidenceType,
       provider: detectedProviderId,
-      receiptId: normalizedTx.receiptId,
       transactionId: normalizedTx.transactionId,
       senderName: normalizedTx.sender?.name,
       receiverName: normalizedTx.receiver?.name,
