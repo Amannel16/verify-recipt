@@ -222,68 +222,71 @@ export function crossValidate(
   const discrepancies: string[] = [];
 
   // 1. Sender Name comparison
-  const senderSimilarity = nameSimilarity(aiData.senderName, scrapedData.senderName);
-  const senderMatches = senderSimilarity >= 70;
+  const hasSenderScraped = Boolean(scrapedData.senderName);
+  const senderSimilarity = hasSenderScraped ? nameSimilarity(aiData.senderName, scrapedData.senderName) : 100;
+  const senderMatches = !hasSenderScraped || senderSimilarity >= 70;
   fieldMatches.push({
     field: "Sender Name",
     aiValue: aiData.senderName,
     scrapedValue: scrapedData.senderName ?? null,
     matches: senderMatches,
     confidence: senderSimilarity,
-    note: senderSimilarity >= 90
-      ? "Names match closely"
-      : senderSimilarity >= 70
-        ? "Names partially match (may be a name variation)"
-        : senderSimilarity > 0
-          ? "Names differ significantly"
-          : "One or both sender names missing",
+    note: !hasSenderScraped
+      ? "Not displayed on public verification portal"
+      : senderSimilarity >= 90
+        ? "Names match closely"
+        : senderSimilarity >= 70
+          ? "Names partially match"
+          : "Names differ significantly",
   });
-  if (!senderMatches && aiData.senderName && scrapedData.senderName) {
+  if (hasSenderScraped && !senderMatches && aiData.senderName && scrapedData.senderName) {
     discrepancies.push(
       `Sender mismatch: AI extracted "${aiData.senderName}" but URL shows "${scrapedData.senderName}"`,
     );
   }
 
   // 2. Receiver Name comparison
-  const receiverSimilarity = nameSimilarity(aiData.receiverName, scrapedData.receiverName);
-  const receiverMatches = receiverSimilarity >= 70;
+  const hasReceiverScraped = Boolean(scrapedData.receiverName);
+  const receiverSimilarity = hasReceiverScraped ? nameSimilarity(aiData.receiverName, scrapedData.receiverName) : 100;
+  const receiverMatches = !hasReceiverScraped || receiverSimilarity >= 70;
   fieldMatches.push({
     field: "Receiver Name",
     aiValue: aiData.receiverName,
     scrapedValue: scrapedData.receiverName ?? null,
     matches: receiverMatches,
     confidence: receiverSimilarity,
-    note: receiverSimilarity >= 90
-      ? "Names match closely"
-      : receiverSimilarity >= 70
-        ? "Names partially match"
-        : receiverSimilarity > 0
-          ? "Names differ significantly"
-          : "One or both receiver names missing",
+    note: !hasReceiverScraped
+      ? "Not displayed on public verification portal"
+      : receiverSimilarity >= 90
+        ? "Names match closely"
+        : receiverSimilarity >= 70
+          ? "Names partially match"
+          : "Names differ significantly",
   });
-  if (!receiverMatches && aiData.receiverName && scrapedData.receiverName) {
+  if (hasReceiverScraped && !receiverMatches && aiData.receiverName && scrapedData.receiverName) {
     discrepancies.push(
       `Receiver mismatch: AI extracted "${aiData.receiverName}" but URL shows "${scrapedData.receiverName}"`,
     );
   }
 
   // 3. Amount comparison
-  const amtResult = amountMatch(aiData.amount, scrapedData.amount);
+  const hasAmtScraped = scrapedData.amount != null;
+  const amtResult = hasAmtScraped ? amountMatch(aiData.amount, scrapedData.amount) : { matches: true, confidence: 100 };
   fieldMatches.push({
     field: "Amount",
     aiValue: aiData.amount,
     scrapedValue: scrapedData.amount ?? null,
     matches: amtResult.matches,
     confidence: amtResult.confidence,
-    note: amtResult.matches
-      ? amtResult.confidence === 100
-        ? "Exact amount match"
-        : "Amount matches within rounding tolerance"
-      : aiData.amount != null && scrapedData.amount != null
-        ? `Amount differs: ${aiData.amount} vs ${scrapedData.amount} ETB`
-        : "One or both amounts missing",
+    note: !hasAmtScraped
+      ? "Not displayed on public verification portal"
+      : amtResult.matches
+        ? amtResult.confidence === 100
+          ? "Exact amount match"
+          : "Amount matches within rounding tolerance"
+        : `Amount differs: ${aiData.amount} vs ${scrapedData.amount} ETB`,
   });
-  if (!amtResult.matches && aiData.amount != null && scrapedData.amount != null) {
+  if (hasAmtScraped && !amtResult.matches && aiData.amount != null && scrapedData.amount != null) {
     discrepancies.push(
       `Amount mismatch: AI extracted ${aiData.amount} ETB but URL shows ${scrapedData.amount} ETB`,
     );
