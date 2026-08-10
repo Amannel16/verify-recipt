@@ -81,33 +81,32 @@ export function detectBankFromText(text: string): string {
   if (!text) return "generic";
   const lowerText = text.toLowerCase();
   
-  // 1. Telebirr special signature layout or SMS (e.g., sender 127)
-  if (
-    lowerText.includes("telebirr") || 
-    lowerText.includes("ethiotelecom") ||
-    lowerText.includes("ethio telecom") ||
-    lowerText.includes("transactioninfo.ethiotelecom.et") ||
-    (lowerText.includes("transaction number") && (lowerText.includes("transaction to") || lowerText.includes("transaction time") || lowerText.includes("transfer money") || lowerText.includes("service fee")))
-  ) {
-    logger.info("🏦 Detected bank provider: telebirr (via signature layout)");
-    return "telebirr";
-  }
-
-  // 2. Commercial Bank of Ethiopia (CBE) special signatures or SMS
+  // 1. Commercial Bank of Ethiopia (CBE) special signatures, URL, or FT reference numbers
   if (
     lowerText.includes("commercial bank of ethiopia") || 
     lowerText.includes("cbe") || 
     lowerText.includes("cbebirr") ||
     lowerText.includes("combanketh") ||
-    lowerText.includes("mreciept.cbe.com.et") ||
-    lowerText.includes("mreceipt.cbe.com.et") ||
+    lowerText.includes("mreciept.cbe") ||
+    lowerText.includes("mreceipt.cbe") ||
     lowerText.includes("banking with cbe") ||
     (lowerText.includes("debit transaction") && lowerText.includes("account")) ||
     (lowerText.includes("debited from") && lowerText.includes("for")) ||
-    /\bFT[A-Z0-9]{10,22}\b/i.test(text)
+    /\bFT[A-Z0-9]{8,22}\b/i.test(text)
   ) {
     logger.info("🏦 Detected bank provider: CBE (via signature layout)");
     return "cbe";
+  }
+
+  // 2. Telebirr special signature layout or SMS (e.g., sender 127)
+  if (
+    lowerText.includes("telebirr") || 
+    lowerText.includes("ethiotelecom") ||
+    lowerText.includes("ethio telecom") ||
+    lowerText.includes("transactioninfo.ethiotelecom.et")
+  ) {
+    logger.info("🏦 Detected bank provider: telebirr (via signature layout)");
+    return "telebirr";
   }
 
   // 3. M-Pesa special signatures or SMS
