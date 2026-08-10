@@ -297,7 +297,7 @@ export function crossValidate(
     fieldMatches.push({
       field: "Transaction ID",
       aiValue: aiData.transactionId,
-      scrapedValue: scrapedData.transactionId,
+      scrapedValue: scrapedData.transactionId ?? null,
       matches: txnIdMatch,
       confidence: txnIdMatch ? 100 : 0,
       note: txnIdMatch ? "Transaction IDs match exactly" : "Transaction IDs differ between receipt and official record",
