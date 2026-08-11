@@ -50,8 +50,8 @@ app.use((req, res, next) => {
 });
 
 // Production-safe CORS configuration
-const allowedOrigins = process.env.CLIENT_URL
-  ? [process.env.CLIENT_URL, "http://localhost:4000", "http://localhost:8081"]
+const allowedOrigins = appConfig.CLIENT_URL
+  ? [appConfig.CLIENT_URL, "http://localhost:4000", "http://localhost:8081", "https://gebaai.et"]
   : true;
 
 app.use(
