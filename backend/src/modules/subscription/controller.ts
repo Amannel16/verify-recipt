@@ -7,7 +7,6 @@ import type { Request, Response } from "express";
 import { getAllPaymentsService, upgradePlanService } from "./service.js";
 import { rejectPaymentRepository, verifyPlanRepository } from "./repository.js";
 import {
-  errorResponse,
   successResponse,
 } from "@/src/utils/helper/response_helper.js";
 import { BadRequestError } from "@/src/utils/error/custom_error_handler.js";
@@ -15,7 +14,8 @@ import {
   safeDeleteFile,
   validateFileType,
 } from "@/src/utils/helper/file_validator.js";
-import { PaymentStatus } from "@prisma/client";
+import { generateRandomFileName } from "@/src/utils/helper/randomfileNameGenerator.js";
+import { uploadFile } from "@/src/utils/rustfsClient.js";
 
 // ─────────────────────────────────────────────────────────────
 export const upgradePlan = catchAsync(async (req: Request, res: Response) => {
@@ -46,8 +46,9 @@ export const upgradePlan = catchAsync(async (req: Request, res: Response) => {
         "upgradePlanController.upgradePlan",
       );
     }
-
-    recieptImage = `/uploads/subscription/${file.filename}`;
+    const key = generateRandomFileName();
+    await uploadFile(key, file.path);
+    recieptImage = key;
   }
 
   const payment = await upgradePlanService(

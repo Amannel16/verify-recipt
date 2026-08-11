@@ -1,5 +1,6 @@
 import { db } from "@/src/config/db.js";
 import { logger } from "@/src/utils/logger/logger.js";
+import { getUrl } from "@/src/utils/rustfsClient.js";
 import { Plan, PaymentStatus } from "@prisma/client";
 
 export async function upgradePlanRepository(
@@ -24,7 +25,7 @@ export async function upgradePlanRepository(
 
 export async function getAllPaymentsRepository(status?: PaymentStatus) {
   logger.info(`Querying subscription payments with status ${status || "all"}`);
-  return await db.payment.findMany({
+  const payments = await db.payment.findMany({
     where: status ? { status } : undefined,
     include: {
       user: {
@@ -42,6 +43,12 @@ export async function getAllPaymentsRepository(status?: PaymentStatus) {
       createdAt: "desc",
     },
   });
+  for (const payment of payments) {
+    if (payment.recieptImage) {
+      payment.recieptImage = await getUrl(payment.recieptImage);
+    }
+  }
+  return payments;
 }
 
 export async function approvePaymentRepository(id: string) {

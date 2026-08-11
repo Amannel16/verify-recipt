@@ -15,6 +15,11 @@ const appConfig = {
   TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || "",
 
   UPLOADS_DIR: "uploads",
+  RUSTFS_ENDPOINT: process.env.RUSTFS_ENDPOINT || "",
+  RUSTFS_ACCESS_KEY: process.env.RUSTFS_ACCESS_KEY || "",
+  RUSTFS_SECRET_KEY: process.env.RUSTFS_SECRET_KEY || "",
+  RUSTFS_REGION: process.env.RUSTFS_REGION || "",
+  RUSTFS_BUCKET_NAME: process.env.RUSTFS_BUCKET_NAME || "",
   ACCESS_COOKIE_OPTIONS: {
     httpOnly: true,
     // For Telegram desktop/webview the auth flow may be treated as cross-site.
