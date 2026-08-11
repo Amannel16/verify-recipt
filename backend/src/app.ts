@@ -15,6 +15,7 @@ import authRoutes from "./modules/auth/route.js";
 import v2VerifyRoutes from "./modules/verify/v2-route.js";
 
 import { securityHeadersMiddleware } from "./middlewares/security-headers.js";
+import { getFileStream } from "./utils/rustfsClient.js";
 
 import {
   authRateLimiter,
@@ -76,6 +77,33 @@ app.use(
   },
   express.static(path.resolve("uploads")),
 );
+
+// Stream RustFS bucket images
+app.get("/gebabucket/:key(*)", async (req, res) => {
+  try {
+    const params = req.params as Record<string, string>;
+    const key = params["key"] || params["0"] || "";
+    const response = await getFileStream(key);
+    if (response.ContentType) {
+      res.setHeader("Content-Type", response.ContentType);
+    }
+    if (response.ContentLength) {
+      res.setHeader("Content-Length", response.ContentLength);
+    }
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+
+    if (response.Body) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stream = response.Body as any;
+      stream.pipe(res);
+    } else {
+      res.status(404).json({ success: false, message: "File not found" });
+    }
+  } catch (error) {
+    logger.error("Error streaming file from RustFS:", error);
+    res.status(404).json({ success: false, message: "File not found" });
+  }
+});
 
 // Digital Asset Links JSON endpoint for Google Play Store Android App Links
 app.get("/.well-known/assetlinks.json", (_req, res) => {

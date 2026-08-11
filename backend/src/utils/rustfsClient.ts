@@ -157,6 +157,20 @@ export async function getObject(key: string) {
   }
 }
 
+export async function getFileStream(key: string, bucket?: string) {
+  try {
+    const bucketName = bucket || appConfig.RUSTFS_BUCKET_NAME;
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    });
+    return await rustfs_client.send(command);
+  } catch (error) {
+    logger.error('getFileStream error:', error);
+    throw error;
+  }
+}
+
 export async function getUrl(key: string, bucket?: string) {
   try {
     // Strip leading slash to prevent double-slash in URL (e.g. /eslbucket//path)
