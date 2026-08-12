@@ -185,29 +185,8 @@ export default function ProfileScreen() {
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <MenuItem
           icon="code-working-outline"
-          label="API Integration (Keys)"
-          onPress={() => {
-            if (user?.plan === "enterprise") {
-              Alert.alert(
-                "Geba Developer API",
-                "Your Active API Key:\npv_live_67aefc88e99ab1d8213bc0d74f2b\n\nWebhook Status: Active",
-                [
-                  { text: "Copy Key", onPress: () => Alert.alert("Copied", "API key copied to clipboard.") },
-                  { text: "Regenerate", style: "destructive", onPress: () => Alert.alert("Success", "New API key generated.") },
-                  { text: "Close", style: "cancel" }
-                ]
-              );
-            } else {
-              Alert.alert(
-                "Enterprise Feature",
-                "Developer API access and real-time webhook routing are locked on your current plan. Upgrade to Enterprise to integrate Geba directly into your custom systems.",
-                [
-                  { text: "Upgrade Plan", onPress: () => router.push("/subscription") },
-                  { text: "Cancel", style: "cancel" }
-                ]
-              );
-            }
-          }}
+          label="API Integration & Webhooks"
+          onPress={() => router.push("/enterprise/developer")}
         />
       </View>
 
