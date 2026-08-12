@@ -26,7 +26,12 @@ const BANK_TEMPLATES: BankTemplate[] = [
   {
     provider: "cbe",
     displayName: "CBE",
-    keywords: ["commercial bank of ethiopia", "cbe", "cbebirr", "cbe birr", "cbe mobile", "combanketh"]
+    keywords: ["commercial bank of ethiopia", "cbe", "combanketh"]
+  },
+  {
+    provider: "cbebirr",
+    displayName: "CBEBirr",
+    keywords: ["cbebirr", "cbe birr", "cbepay1.cbe.com.et"]
   },
   {
     provider: "telebirr",
@@ -81,11 +86,21 @@ export function detectBankFromText(text: string): string {
   if (!text) return "generic";
   const lowerText = text.toLowerCase();
   
-  // 1. Commercial Bank of Ethiopia (CBE) special signatures, URL, or FT reference numbers
+  // 1. CBEBirr special signatures or SMS
+  if (
+    lowerText.includes("cbebirr") ||
+    lowerText.includes("cbe birr") ||
+    lowerText.includes("cbepay1.cbe.com.et") ||
+    lowerText.includes("via cbebirr")
+  ) {
+    logger.info("🏦 Detected bank provider: CBEBirr (via signature layout)");
+    return "cbebirr";
+  }
+
+  // 2. Commercial Bank of Ethiopia (CBE) special signatures, URL, or FT reference numbers
   if (
     lowerText.includes("commercial bank of ethiopia") || 
     lowerText.includes("cbe") || 
-    lowerText.includes("cbebirr") ||
     lowerText.includes("combanketh") ||
     lowerText.includes("mreciept.cbe") ||
     lowerText.includes("mreceipt.cbe") ||
@@ -215,7 +230,31 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
   }
 
   // --- BANK SPECIFIC REGEX PARSING TIER ---
-  if (provider === "cbe") {
+  if (provider === "cbebirr") {
+    // 0. CBEBirr
+    const txMatch = text.match(/\b(DH[A-Z0-9]{8,15})\b/i) || text.match(/\b(FT[A-Z0-9]{8,22})\b/i);
+    if (txMatch) fields.transactionId = txMatch[1].toUpperCase();
+
+    const amtMatch = text.match(/(?:etb|birr)\s*([\d,]+(?:\.\d{1,2})?)\s+debited/i) ||
+      text.match(/transferred\s+([\d,]+(?:\.\d{1,2})?)\s*(?:br|etb|birr)/i) ||
+      text.match(/made\s+([\d,]+(?:\.\d{1,2})?)\s*(?:br|etb|birr)\.?\s*transfer/i);
+    if (amtMatch) fields.amount = parseFloat(amtMatch[1].replace(/,/g, ""));
+
+    const senderMatch = text.match(/debited\s+from\s+([A-Za-z\s.-]+?)\s+for/i) ||
+      text.match(/Dear\s+([A-Za-z\s.-]+?),?\s+you\s+have/i);
+    if (senderMatch) fields.senderName = cleanName(senderMatch[1]);
+
+    const receiverMatch = text.match(/for\s+([A-Za-z\s.-]+?)\s+on\s+\d{1,2}\s+[A-Za-z]{3}/i) ||
+      text.match(/to\s+\d{10,16}-([A-Za-z\s.-]+?)\s+on/i) ||
+      text.match(/transfer\s+to\s+([A-Za-z\s.-]+?)\s+by/i);
+    if (receiverMatch) fields.receiverName = cleanName(receiverMatch[1]);
+
+    const dateMatch = text.match(/on\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})/i) ||
+      text.match(/on\s+(\d{2}-\d{2}-\d{4})/i);
+    if (dateMatch) {
+       fields.date = dateMatch[1];
+    }
+  } else if (provider === "cbe") {
     // 1. CBE (Commercial Bank of Ethiopia)
     const txMatch = text.match(/\b(FT[A-Z0-9]{8,22})\b/i) ||
       text.match(/mreciept\.cbe\.com\.et\/([A-Za-z0-9_-]+)/i) ||

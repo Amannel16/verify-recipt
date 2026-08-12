@@ -272,6 +272,64 @@ async function scrapeCbeReceipt(url: string, providerId: string, inputId: string
   };
 }
 
+async function scrapeCbebirrReceipt(url: string, providerId: string, inputId: string): Promise<ScrapedReceiptData> {
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`CBEBirr portal responded with status: ${response.status}`);
+  
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  
+  let rawText = extractTextFromPdf(buffer);
+  if (!rawText || rawText.trim().length === 0) {
+    rawText = buffer.toString("utf-8");
+  }
+
+  const cleanText = rawText
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  
+  const extractField = (pattern: RegExp): string | undefined => {
+    const match = cleanText.match(pattern);
+    return match?.[1]?.trim();
+  };
+
+  const referenceNo = extractField(/(?:Reference No|Txn Ref|Transaction Ref|Ref No|Txn ID)[:\s]*([A-Z0-9_-]+)/i) ||
+                      extractField(/(DH[A-Z0-9]{8,14})/i);
+  const customerName = extractField(/(?:Customer Name|Payer|Sender|From)[:\s]*([A-Za-z\s]+?)(?:\s+(?:To|Receiver|Payee|Amount|Date)|$)/i);
+  const receiverName = extractField(/(?:Receiver|Payee|To|Beneficiary)[:\s]*([A-Za-z\s]+?)(?:\s+(?:Amount|Date|Ref|Status)|$)/i);
+  const paymentDate = extractField(/(?:Payment Date & Time|Transaction Date|Date)[:\s]*([\d/:,\sAPMapm-]+)/i);
+  const transferredAmount = extractField(/(?:Transferred Amount|Amount|Total)[:\s]*([\d,.]+)\s*(?:ETB|Birr)?/i);
+
+  let urlToken: string | null = null;
+  try {
+    urlToken = url.includes("TID=") ? new URL(url).searchParams.get("TID") : null;
+  } catch (e) {
+    // Ignore URL parse error
+  }
+  const cbeReceiptId = urlToken || inputId;
+  const cbeTxId = referenceNo || inputId;
+
+  const isValid = !!cbeTxId || !!transferredAmount || cleanText.toLowerCase().includes("cbebirr") || cleanText.toLowerCase().includes("cbe");
+
+  logger.info(`🏦 CBEBirr Scraped Data: receiptId=${cbeReceiptId}, txId=${cbeTxId || "N/A"}, amount=${transferredAmount}, sender=${customerName}, receiver=${receiverName}`);
+
+  return {
+    isValid,
+    providerId,
+    receiptId: cbeReceiptId,
+    transactionId: cbeTxId,
+    amount: transferredAmount ? parseFloat(transferredAmount.replace(/,/g, "")) : undefined,
+    senderName: customerName,
+    receiverName: receiverName,
+    date: paymentDate ? parseCbeDate(paymentDate) : undefined,
+    status: isValid ? "SUCCESS" : "FAILED",
+    rawHtml: cleanText.substring(0, 5000)
+  };
+}
+
 async function scrapeDashenReceipt(url: string, providerId: string, receiptId: string): Promise<ScrapedReceiptData> {
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`Dashen portal responded with status: ${response.status}`);
@@ -680,6 +738,8 @@ export async function scrapeReceiptUrl(
     switch (lowerProviderId) {
       case "cbe":
         return await scrapeCbeReceipt(url, providerId, receiptId);
+      case "cbebirr":
+        return await scrapeCbebirrReceipt(url, providerId, receiptId);
       case "dashen":
         return await scrapeDashenReceipt(url, providerId, receiptId);
       case "zemen":
