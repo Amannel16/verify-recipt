@@ -79,10 +79,11 @@ app.use(
 );
 
 // Stream RustFS bucket images
-app.get("/gebabucket/:key(*)", async (req, res) => {
+app.get("/gebabucket/*key", async (req, res) => {
   try {
-    const params = req.params as Record<string, string>;
-    const key = params["key"] || params["0"] || "";
+    const params = req.params as Record<string, string | string[]>;
+    const keyParam = params["key"] || params["0"];
+    const key = Array.isArray(keyParam) ? keyParam.join("/") : (keyParam || "");
     const response = await getFileStream(key);
     if (response.ContentType) {
       res.setHeader("Content-Type", response.ContentType);
