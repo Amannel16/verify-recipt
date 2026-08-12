@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -15,57 +17,145 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { api } from "@/utils/api";
 
 interface Branch {
   id: string;
   name: string;
   location: string;
+  city?: string;
+  phone?: string;
   cashiers: number;
   monthlyScans: number;
   status: "active" | "inactive";
+  createdAt?: string;
 }
-
-const INITIAL_BRANCHES: Branch[] = [
-  { id: "1", name: "Bole Medhanialem Branch", location: "Bole, Ring Road (Near Mall)", cashiers: 4, monthlyScans: 852, status: "active" },
-  { id: "2", name: "Mercato Wholesale Hub", location: "Addis Ketema, Raguel District", cashiers: 8, monthlyScans: 3412, status: "active" },
-  { id: "3", name: "Piassa Retail Outlet", location: "Arada, De Gaulle Square", cashiers: 3, monthlyScans: 410, status: "active" },
-];
 
 export default function BranchesScreen() {
   const colors = useColors();
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
-  
+
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   // Modal states
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [newBranchName, setNewBranchName] = useState("");
   const [newBranchLoc, setNewBranchLoc] = useState("");
+  const [newBranchCity, setNewBranchCity] = useState("Addis Ababa");
+  const [newBranchPhone, setNewBranchPhone] = useState("");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  function handleAddBranch() {
+  const fetchBranches = useCallback(async (isRefresh = false) => {
+    if (user?.plan !== "enterprise") {
+      setLoading(false);
+      return;
+    }
+
+    if (!isRefresh) setLoading(true);
+    try {
+      const res = await api.get<any[]>("/user/branches");
+      if (res.success && Array.isArray(res.data)) {
+        const mappedBranches: Branch[] = res.data.map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          location: b.location,
+          city: b.city || "Addis Ababa",
+          phone: b.phone || "",
+          cashiers: b._count?.users ?? b.cashiers ?? 0,
+          monthlyScans: b._count?.verifications ?? b.monthlyScans ?? 0,
+          status: (b.status?.toLowerCase() as "active" | "inactive") || "active",
+          createdAt: b.createdAt,
+        }));
+        setBranches(mappedBranches);
+      } else if (res.message && res.message.includes("requires an Enterprise")) {
+        // Plan check handled by lock overlay
+      }
+    } catch (error) {
+      console.error("Failed to fetch branches:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user?.plan]);
+
+  useEffect(() => {
+    fetchBranches();
+  }, [fetchBranches]);
+
+  async function handleAddBranch() {
     if (!newBranchName.trim() || !newBranchLoc.trim()) {
       Alert.alert("Required Fields", "Please specify both the branch name and address.");
       return;
     }
 
-    const newB: Branch = {
-      id: Date.now().toString(),
-      name: newBranchName.trim(),
-      location: newBranchLoc.trim(),
-      cashiers: 0,
-      monthlyScans: 0,
-      status: "active",
-    };
+    setSubmitting(true);
+    try {
+      const res = await api.post<any>("/user/branches", {
+        name: newBranchName.trim(),
+        location: newBranchLoc.trim(),
+        city: newBranchCity.trim(),
+        phone: newBranchPhone.trim(),
+      });
 
-    setBranches((prev) => [...prev, newB]);
-    setNewBranchName("");
-    setNewBranchLoc("");
-    setAddModalVisible(false);
-    Alert.alert("Branch Added", `Successfully registered branch "${newB.name}".`);
+      if (res.success && res.data) {
+        const created: Branch = {
+          id: res.data.id || Date.now().toString(),
+          name: res.data.name || newBranchName.trim(),
+          location: res.data.location || newBranchLoc.trim(),
+          city: res.data.city || newBranchCity.trim(),
+          phone: res.data.phone || newBranchPhone.trim(),
+          cashiers: 0,
+          monthlyScans: 0,
+          status: "active",
+        };
+        setBranches((prev) => [created, ...prev]);
+        setNewBranchName("");
+        setNewBranchLoc("");
+        setNewBranchPhone("");
+        setAddModalVisible(false);
+        Alert.alert("Branch Added", `Successfully registered branch "${created.name}".`);
+      } else {
+        Alert.alert("Error", res.message || "Failed to create branch.");
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to create branch.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleDeleteBranch(id: string, name: string) {
+    Alert.alert(
+      "Delete Branch",
+      `Are you sure you want to delete branch "${name}"?`,
+      [
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await api.delete(`/user/branches/${id}`);
+              if (res.success) {
+                setBranches((prev) => prev.filter((b) => b.id !== id));
+                Alert.alert("Success", "Branch removed.");
+              } else {
+                Alert.alert("Error", res.message || "Failed to delete branch.");
+              }
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "Failed to delete branch.");
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
   }
 
   // Enforce Enterprise plan block overlay
@@ -88,7 +178,7 @@ export default function BranchesScreen() {
           </View>
           <Text style={[styles.lockTitle, { color: colors.foreground }]}>Multi-Branch Support Locked</Text>
           <Text style={[styles.lockSubtitle, { color: colors.mutedForeground }]}>
-            Multi-branch location syncing, consolidated scans reports, and centralized manager auditing require an Enterprise plan subscription.
+            Multi-branch location syncing, consolidated scan reports, and centralized manager auditing require an Enterprise plan subscription.
           </Text>
           <TouchableOpacity
             style={[styles.lockBtn, { backgroundColor: colors.primary }]}
@@ -121,41 +211,69 @@ export default function BranchesScreen() {
       </View>
 
       {/* List */}
-      <FlatList
-        data={branches}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 32 }]}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconBox, { backgroundColor: colors.primary + "12" }]}>
-                <Ionicons name="business" size={20} color={colors.primary} />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading branches...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={branches}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 32 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                fetchBranches(true);
+              }}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="business-outline" size={48} color={colors.mutedForeground} />
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No branches added yet</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+                Tap the "+" button above to register your first store location.
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.iconBox, { backgroundColor: colors.primary + "12" }]}>
+                  <Ionicons name="business" size={20} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.branchName, { color: colors.foreground }]}>{item.name}</Text>
+                  <Text style={[styles.branchLoc, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    {item.location} ({item.city || "Addis Ababa"})
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => handleDeleteBranch(item.id, item.name)}>
+                  <Ionicons name="trash-outline" size={18} color={colors.destructive} />
+                </TouchableOpacity>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.branchName, { color: colors.foreground }]}>{item.name}</Text>
-                <Text style={[styles.branchLoc, { color: colors.mutedForeground }]} numberOfLines={1}>{item.location}</Text>
-              </View>
-              <View style={[styles.badge, { backgroundColor: colors.success + "15" }]}>
-                <Text style={[styles.badgeText, { color: colors.success }]}>Active</Text>
+
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+              <View style={styles.statsRow}>
+                <View style={styles.statCol}>
+                  <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>ACTIVE CASHIERS</Text>
+                  <Text style={[styles.statVal, { color: colors.foreground }]}>{item.cashiers} Cashiers</Text>
+                </View>
+                <View style={styles.statCol}>
+                  <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>VERIFICATIONS</Text>
+                  <Text style={[styles.statVal, { color: colors.foreground }]}>{item.monthlyScans.toLocaleString()} Scans</Text>
+                </View>
               </View>
             </View>
-
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-            <View style={styles.statsRow}>
-              <View style={styles.statCol}>
-                <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>ACTIVE CASHIERS</Text>
-                <Text style={[styles.statVal, { color: colors.foreground }]}>{item.cashiers} Cashiers</Text>
-              </View>
-              <View style={styles.statCol}>
-                <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>MONTHLY VERIFICATIONS</Text>
-                <Text style={[styles.statVal, { color: colors.foreground }]}>{item.monthlyScans.toLocaleString()} Scans</Text>
-              </View>
-            </View>
-          </View>
-        )}
-      />
+          )}
+        />
+      )}
 
       {/* Add Branch Modal */}
       <Modal visible={addModalVisible} transparent animationType="slide">
@@ -165,7 +283,10 @@ export default function BranchesScreen() {
             <View style={styles.inputWrap}>
               <Text style={[styles.inputLabel, { color: colors.foreground }]}>Branch Name</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                style={[
+                  styles.input,
+                  { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
+                ]}
                 placeholder="e.g. Bole Medhanialem Branch"
                 placeholderTextColor={colors.mutedForeground}
                 value={newBranchName}
@@ -175,11 +296,27 @@ export default function BranchesScreen() {
             <View style={styles.inputWrap}>
               <Text style={[styles.inputLabel, { color: colors.foreground }]}>Address / Location</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                placeholder="e.g. Addis Ababa, Bole District"
+                style={[
+                  styles.input,
+                  { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
+                ]}
+                placeholder="e.g. Ring Road, Near Mall"
                 placeholderTextColor={colors.mutedForeground}
                 value={newBranchLoc}
                 onChangeText={setNewBranchLoc}
+              />
+            </View>
+            <View style={styles.inputWrap}>
+              <Text style={[styles.inputLabel, { color: colors.foreground }]}>City</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
+                ]}
+                placeholder="e.g. Addis Ababa"
+                placeholderTextColor={colors.mutedForeground}
+                value={newBranchCity}
+                onChangeText={setNewBranchCity}
               />
             </View>
 
@@ -187,14 +324,20 @@ export default function BranchesScreen() {
               <TouchableOpacity
                 style={[styles.modalCancel, { borderColor: colors.border }]}
                 onPress={() => setAddModalVisible(false)}
+                disabled={submitting}
               >
                 <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalSave, { backgroundColor: colors.primary }]}
                 onPress={handleAddBranch}
+                disabled={submitting}
               >
-                <Text style={styles.saveText}>Save Branch</Text>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveText}>Save Branch</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -258,6 +401,13 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
   statVal: { fontSize: 13, fontFamily: "Inter_500Medium" },
 
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  loadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+
+  emptyState: { alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 10, paddingHorizontal: 30 },
+  emptyTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  emptySubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18 },
+
   // Add modal
   modalOverlay: {
     flex: 1,
@@ -270,7 +420,7 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 20,
     padding: 24,
-    gap: 16,
+    gap: 14,
   },
   modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   inputWrap: { gap: 6 },
