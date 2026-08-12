@@ -15,6 +15,9 @@ import {
   getBranches,
   createBranch,
   deleteBranch,
+  addBranchStaff,
+  updateBranchStaff,
+  removeBranchStaff,
   getApiKeys,
   createApiKey,
   deleteApiKey,
@@ -46,6 +49,9 @@ userRoutes.delete("/team/:id", authMiddleware, removeTeamMember);
 userRoutes.get("/branches", authMiddleware, getBranches);
 userRoutes.post("/branches", authMiddleware, createBranch);
 userRoutes.delete("/branches/:id", authMiddleware, deleteBranch);
+userRoutes.post("/branches/:id/staff", authMiddleware, addBranchStaff);
+userRoutes.put("/branches/:id/staff/:memberId", authMiddleware, updateBranchStaff);
+userRoutes.delete("/branches/:id/staff/:memberId", authMiddleware, removeBranchStaff);
 
 // API Keys routes (Enterprise)
 userRoutes.get("/api-keys", authMiddleware, getApiKeys);
