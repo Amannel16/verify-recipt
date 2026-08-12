@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { api } from "@/utils/api";
 
 type Role = "owner" | "manager" | "cashier" | "viewer";
 
@@ -33,32 +36,63 @@ const ROLE_COLORS: Record<Role, string> = {
   viewer: "#64748B",
 };
 
-const DEMO_MEMBERS: TeamMember[] = [
-  { id: "1", name: "Sarah Davis", email: "sarah@company.com", role: "manager", joinedAt: "Jan 2025", initials: "SD" },
-  { id: "2", name: "Michael Chen", email: "michael@company.com", role: "cashier", joinedAt: "Feb 2025", initials: "MC" },
-  { id: "3", name: "Jessica Martinez", email: "jessica@company.com", role: "cashier", joinedAt: "Mar 2025", initials: "JM" },
-  { id: "4", name: "David Kim", email: "david@company.com", role: "viewer", joinedAt: "Apr 2025", initials: "DK" },
-];
-
-const ROLE_PERMS: Record<Role, string[]> = {
-  owner: ["All permissions", "Billing access", "Team management"],
-  manager: ["Verify receipts", "View reports", "Manage cashiers"],
-  cashier: ["Verify receipts", "View own history"],
-  viewer: ["View reports", "Read-only access"],
-};
-
 export default function TeamScreen() {
   const colors = useColors();
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
   const [showInvite, setShowInvite] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<Role>("cashier");
-  const [members, setMembers] = useState<TeamMember[]>(DEMO_MEMBERS);
+  const [members, setMembers] = useState<TeamMember[]>([]);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const fetchTeamMembers = useCallback(async (isRefresh = false) => {
+    if (user?.plan === "free") {
+      setLoading(false);
+      return;
+    }
+
+    if (!isRefresh) setLoading(true);
+    try {
+      const res = await api.get<any>("/user/team");
+      if (res.success && res.data?.members) {
+        const fetched: TeamMember[] = res.data.members.map((m: any) => {
+          const fullName = `${m.firstName || ""} ${m.lastName || ""}`.trim() || m.email;
+          const initials = fullName
+            .split(" ")
+            .map((n: string) => n[0]?.toUpperCase() ?? "")
+            .slice(0, 2)
+            .join("");
+
+          return {
+            id: m.id,
+            name: fullName,
+            email: m.email,
+            role: (m.role?.toLowerCase() as Role) || "cashier",
+            joinedAt: m.createdAt ? new Date(m.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Recently",
+            initials: initials || "TM",
+          };
+        });
+        setMembers(fetched);
+      }
+    } catch (err) {
+      console.error("Failed to fetch team members:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user?.plan]);
+
+  useEffect(() => {
+    fetchTeamMembers();
+  }, [fetchTeamMembers]);
 
   const ownerMember: TeamMember = {
     id: "owner",
@@ -71,25 +105,68 @@ export default function TeamScreen() {
 
   const allMembers = [ownerMember, ...members];
 
-  function handleInvite() {
+  async function handleInvite() {
     if (!inviteEmail.trim()) {
       Alert.alert("Required", "Please enter an email address.");
       return;
     }
-    const name = inviteEmail.split("@")[0].replace(/[._]/g, " ");
-    const initials = name.split(" ").map((n: string) => n[0]?.toUpperCase() ?? "").slice(0, 2).join("");
-    const newMember: TeamMember = {
-      id: Date.now().toString(),
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      email: inviteEmail.trim(),
-      role: inviteRole,
-      joinedAt: "Just now",
-      initials,
-    };
-    setMembers((prev) => [...prev, newMember]);
-    setInviteEmail("");
-    setShowInvite(false);
-    Alert.alert("Invite Sent", `An invitation has been sent to ${inviteEmail}`);
+
+    setSubmitting(true);
+    try {
+      const rawName = inviteEmail.split("@")[0].replace(/[._]/g, " ");
+      const firstName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+
+      const res = await api.post<any>("/user/team/invite", {
+        email: inviteEmail.trim(),
+        firstName,
+        role: inviteRole.toUpperCase(),
+      });
+
+      if (res.success && res.data) {
+        const initials = firstName.split(" ").map((n: string) => n[0]?.toUpperCase() ?? "").slice(0, 2).join("");
+        const newMember: TeamMember = {
+          id: res.data.id || Date.now().toString(),
+          name: `${res.data.firstName || firstName} ${res.data.lastName || ""}`.trim(),
+          email: res.data.email || inviteEmail.trim(),
+          role: inviteRole,
+          joinedAt: "Just now",
+          initials,
+        };
+        setMembers((prev) => [...prev, newMember]);
+        setInviteEmail("");
+        setShowInvite(false);
+        Alert.alert("Invite Sent", `An invitation has been sent to ${inviteEmail}`);
+      } else {
+        Alert.alert("Invite Failed", res.message || "Could not send invitation.");
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to send invitation.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleRemoveMember(memberId: string, name: string) {
+    Alert.alert("Member Options", `Remove ${name} from your business team?`, [
+      {
+        text: "Remove Member",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const res = await api.delete(`/user/team/${memberId}`);
+            if (res.success) {
+              setMembers((prev) => prev.filter((m) => m.id !== memberId));
+              Alert.alert("Success", `${name} has been removed.`);
+            } else {
+              Alert.alert("Error", res.message || "Failed to remove member.");
+            }
+          } catch (err: any) {
+            Alert.alert("Error", err.message || "Failed to remove member.");
+          }
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   }
 
   return (
@@ -172,60 +249,79 @@ export default function TeamScreen() {
             <TouchableOpacity
               style={[styles.cancelBtn, { borderColor: colors.border }]}
               onPress={() => setShowInvite(false)}
+              disabled={submitting}
             >
               <Text style={[styles.cancelBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.sendBtn, { backgroundColor: colors.primary }]} onPress={handleInvite}>
-              <Text style={styles.sendBtnText}>Send Invite</Text>
+            <TouchableOpacity
+              style={[styles.sendBtn, { backgroundColor: colors.primary }]}
+              onPress={handleInvite}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.sendBtnText}>Send Invite</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      <FlatList
-        data={allMembers}
-        keyExtractor={(i) => i.id}
-        contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 100 }]}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={[styles.memberCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.avatar, { backgroundColor: ROLE_COLORS[item.role] + "20" }]}>
-              <Text style={[styles.avatarText, { color: ROLE_COLORS[item.role] }]}>{item.initials}</Text>
-            </View>
-            <View style={styles.memberInfo}>
-              <View style={styles.memberNameRow}>
-                <Text style={[styles.memberName, { color: colors.foreground }]}>{item.name}</Text>
-                {item.id === "owner" && (
-                  <View style={[styles.youBadge, { backgroundColor: colors.primary + "20" }]}>
-                    <Text style={[styles.youText, { color: colors.primary }]}>You</Text>
-                  </View>
-                )}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading team members...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={allMembers}
+          keyExtractor={(i) => i.id}
+          contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 100 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                fetchTeamMembers(true);
+              }}
+              tintColor={colors.primary}
+            />
+          }
+          renderItem={({ item }) => (
+            <View style={[styles.memberCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.avatar, { backgroundColor: (ROLE_COLORS[item.role] || colors.primary) + "20" }]}>
+                <Text style={[styles.avatarText, { color: ROLE_COLORS[item.role] || colors.primary }]}>{item.initials}</Text>
               </View>
-              <Text style={[styles.memberEmail, { color: colors.mutedForeground }]}>{item.email}</Text>
-              <View style={styles.memberMeta}>
-                <View style={[styles.roleBadge, { backgroundColor: ROLE_COLORS[item.role] + "15" }]}>
-                  <Text style={[styles.roleText, { color: ROLE_COLORS[item.role] }]}>
-                    {item.role.charAt(0).toUpperCase() + item.role.slice(1)}
-                  </Text>
+              <View style={styles.memberInfo}>
+                <View style={styles.memberNameRow}>
+                  <Text style={[styles.memberName, { color: colors.foreground }]}>{item.name}</Text>
+                  {item.id === "owner" && (
+                    <View style={[styles.youBadge, { backgroundColor: colors.primary + "20" }]}>
+                      <Text style={[styles.youText, { color: colors.primary }]}>You</Text>
+                    </View>
+                  )}
                 </View>
-                <Text style={[styles.joinedText, { color: colors.mutedForeground }]}>Joined {item.joinedAt}</Text>
+                <Text style={[styles.memberEmail, { color: colors.mutedForeground }]}>{item.email}</Text>
+                <View style={styles.memberMeta}>
+                  <View style={[styles.roleBadge, { backgroundColor: (ROLE_COLORS[item.role] || colors.primary) + "15" }]}>
+                    <Text style={[styles.roleText, { color: ROLE_COLORS[item.role] || colors.primary }]}>
+                      {item.role.charAt(0).toUpperCase() + item.role.slice(1)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.joinedText, { color: colors.mutedForeground }]}>Joined {item.joinedAt}</Text>
+                </View>
               </View>
+              {item.id !== "owner" && (
+                <TouchableOpacity onPress={() => handleRemoveMember(item.id, item.name)}>
+                  <Ionicons name="ellipsis-horizontal" size={20} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              )}
             </View>
-            {item.id !== "owner" && (
-              <TouchableOpacity
-                onPress={() =>
-                  Alert.alert("Member Options", `Manage ${item.name}`, [
-                    { text: "Remove Member", style: "destructive", onPress: () => setMembers((p) => p.filter((m) => m.id !== item.id)) },
-                    { text: "Cancel", style: "cancel" },
-                  ])
-                }
-              >
-                <Ionicons name="ellipsis-horizontal" size={20} color={colors.mutedForeground} />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      />
+          )}
+        />
+      )}
     </View>
   );
 }
@@ -251,6 +347,8 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   sendBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: "center" },
   sendBtnText: { color: "#FFFFFF", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  loadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   list: { paddingHorizontal: 16, gap: 10 },
   memberCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, borderWidth: 1 },
   avatar: { width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center" },
