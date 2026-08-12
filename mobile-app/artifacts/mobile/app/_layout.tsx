@@ -18,6 +18,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { VerificationProvider } from "@/contexts/VerificationContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { API_BASE_URL } from "@/utils/api";
 
 if (process.env.EXPO_PUBLIC_DOMAIN) {
@@ -77,13 +78,15 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
-              <AuthProvider>
-                <VerificationProvider>
-                  <NotificationProvider>
-                    <RootLayoutNav />
-                  </NotificationProvider>
-                </VerificationProvider>
-              </AuthProvider>
+              <ThemeProvider>
+                <AuthProvider>
+                  <VerificationProvider>
+                    <NotificationProvider>
+                      <RootLayoutNav />
+                    </NotificationProvider>
+                  </VerificationProvider>
+                </AuthProvider>
+              </ThemeProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
