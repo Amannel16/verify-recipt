@@ -9,12 +9,13 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useAuth } from "@/contexts/AuthContext";
 import { useVerifications } from "@/contexts/VerificationContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useColors } from "@/hooks/useColors";
 
 interface MenuItemProps {
@@ -54,14 +55,14 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut, deleteAccount } = useAuth();
   const { getStats } = useVerifications();
+  const { isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const [darkMode, setDarkMode] = useState(colorScheme === "dark");
   const [notifications, setNotifications] = useState(true);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
   const stats = getStats();
+
 
   function handleSignOut() {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -213,8 +214,8 @@ export default function ProfileScreen() {
           label="Dark Mode"
           right={
             <Switch
-              value={darkMode}
-              onValueChange={setDarkMode}
+              value={isDark}
+              onValueChange={toggleTheme}
               trackColor={{ true: colors.primary }}
             />
           }
