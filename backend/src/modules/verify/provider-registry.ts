@@ -1,6 +1,7 @@
 import { NormalizedTransaction, PaymentProviderAdapter } from "./types.js";
 import { logger } from "../../utils/logger/logger.js";
 import { CbeProviderAdapter } from "./adapters/cbe.adapter.js";
+import { CbebirrProviderAdapter } from "./adapters/cbebirr.adapter.js";
 import { TelebirrProviderAdapter } from "./adapters/telebirr.adapter.js";
 import { DashenProviderAdapter } from "./adapters/dashen.adapter.js";
 import { AbyssiniaProviderAdapter } from "./adapters/abyssinia.adapter.js";
@@ -77,14 +78,13 @@ export class ProviderRegistry {
       id: "cbe",
       name: "Commercial Bank of Ethiopia",
       adapter: new CbeProviderAdapter(),
-      aliases: ["cbe", "commercial bank of ethiopia", "cbe birr", "cbebirr", "combanketh"],
+      aliases: ["cbe", "commercial bank of ethiopia", "combanketh"],
 
       officialDomains: [
         "cbe.com.et",
         "apps.cbe.com.et",
         "mreciept.cbe.com.et",
         "mreceipt.cbe.com.et",
-        "cbebirr.cbe.com.et",
         "combanketh.et",
         "www.cbe.com.et",
       ],
@@ -115,6 +115,44 @@ export class ProviderRegistry {
       buildVerificationUrl: (tx) => {
         if (!tx.transactionId) return null;
         return `https://mreciept.cbe.com.et/receipt/${tx.transactionId}`;
+      },
+    });
+
+    // 1.5 CBEBirr
+    this.registerProvider({
+      id: "cbebirr",
+      name: "CBEBirr",
+      adapter: new CbebirrProviderAdapter(),
+      aliases: ["cbebirr", "cbe birr"],
+
+      officialDomains: [
+        "cbebirr.cbe.com.et",
+        "cbepay1.cbe.com.et",
+        "shorturl.at"
+      ],
+      verificationDomains: [
+        "cbepay1.cbe.com.et"
+      ],
+      identifierTypes: ["TRANSACTION_ID", "REFERENCE"],
+      txIdPatterns: [/DH[A-Z0-9]{8,14}/i, /FT[A-Z0-9]{8,14}/i],
+      referencePatterns: [/DH[A-Z0-9]{8,14}/i],
+      accountPatterns: [/[0-9]{13}/],
+      phonePatterns: [/^(?:\+251|251|0)?9[0-9]{8}$/, /^(?:\+251|251|0)?7[0-9]{8}$/],
+      smsPatterns: [
+        /cbebirr/i,
+        /cbe birr/i,
+      ],
+      ussdPatterns: [/\*847\#/i, /cbe birr transaction/i],
+      verificationMethods: ["QR", "RECEIPT_URL", "TRANSACTION_ID", "OFFICIAL_PORTAL", "SMS"],
+      requiredFields: ["amount", "transactionId"],
+      optionalFields: ["senderName", "receiverName", "date"],
+      supportsQR: true,
+      supportsSMS: true,
+      supportsUSSD: true,
+      supportsOfficialVerification: true,
+      buildVerificationUrl: (tx) => {
+        if (!tx.transactionId) return null;
+        return `https://cbepay1.cbe.com.et/aureceipt?TID=${tx.transactionId}`;
       },
     });
 
