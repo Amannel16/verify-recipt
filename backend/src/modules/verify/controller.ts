@@ -34,6 +34,7 @@ import { calculateRiskScore, type RiskAssessment } from "./risk-scorer.js";
 import { realTimeServiceEmiter } from "@/src/socket/service.js";
 import { generateRandomFileName } from "@/src/utils/helper/randomfileNameGenerator.js";
 import { uploadFile, getUrl, deleteFile } from "@/src/utils/rustfsClient.js";
+import { dispatchWebhooksForUser } from "./webhook-dispatcher.js";
 
 // ─────────────────────────────────────────────────────────────
 // MAIN: Verify Receipt
@@ -434,6 +435,26 @@ export async function verifyReceipt(
       logger.info(
         `🔔 Notification created and sent to user: ${userId} for receipt ${verification.id}`,
       );
+
+      // Dispatch Webhooks for Enterprise plan users
+      dispatchWebhooksForUser(userId, {
+        event: finalStatus === "REJECTED" ? "fraud.alert" : finalStatus === "SUSPICIOUS" ? "verification.suspicious" : "verification.completed",
+        timestamp: new Date().toISOString(),
+        data: {
+          verificationId: verification.id,
+          status: finalStatus,
+          confidence: finalConfidence,
+          amount: aiResult.amount,
+          currency: aiResult.currency || "ETB",
+          transactionId: aiResult.transactionId,
+          paymentMethod: aiResult.paymentMethod,
+          senderName: aiResult.senderName,
+          receiverName: aiResult.receiverName,
+          isDuplicate: duplicateCheck.isDuplicate,
+          reasons: allReasons,
+          warnings: allWarnings,
+        },
+      }).catch((whErr) => logger.error("Webhook dispatch error:", whErr));
     } catch (notifErr) {
       logger.error("Failed to create or emit notification:", notifErr);
     }
@@ -531,22 +552,37 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { plan: true },
+    });
+
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
 
+    const plan = user?.plan ?? "FREE";
+    const whereCondition: any = { userId };
+
+    // Plan-based date window restriction
+    if (plan !== "ENTERPRISE") {
+      const days = plan === "PRO" ? 90 : 30;
+      const dateCutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      whereCondition.createdAt = { gte: dateCutoff };
+    }
+
     logger.info(
-      `Fetching verification history for user ${userId} (page ${page}, limit ${limit})`,
+      `Fetching verification history for user ${userId} [Plan: ${plan}] (page ${page}, limit ${limit})`,
     );
 
     const [verifications, total] = await Promise.all([
       db.verification.findMany({
-        where: { userId },
+        where: whereCondition,
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
       }),
-      db.verification.count({ where: { userId } }),
+      db.verification.count({ where: whereCondition }),
     ]);
 
     for (const verification of verifications) {
@@ -564,6 +600,8 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
       message: "Verification history retrieved.",
       data: {
         verifications,
+        plan,
+        historyLimitDays: plan === "FREE" ? 30 : plan === "PRO" ? 90 : "unlimited",
         pagination: {
           page,
           limit,
@@ -577,6 +615,82 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
     res
       .status(500)
       .json({ success: false, message: "Failed to retrieve history." });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Export Verification History (Pro & Enterprise Feature)
+// ─────────────────────────────────────────────────────────────
+
+export async function exportHistory(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { plan: true, businessName: true, email: true },
+    });
+
+    if (user?.plan === "FREE") {
+      res.status(403).json({
+        success: false,
+        message: "PDF & Excel monthly reports export is locked on the Free plan. Upgrade to Pro Merchant or Enterprise to export verification logs.",
+      });
+      return;
+    }
+
+    const verifications = await db.verification.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const format = (req.query.format as string)?.toLowerCase() || "csv";
+
+    // Format as CSV
+    const headers = [
+      "ID",
+      "Date",
+      "Time",
+      "Status",
+      "Confidence (%)",
+      "Amount (ETB)",
+      "Payment Method",
+      "Transaction ID",
+      "Sender Name",
+      "Receiver Name",
+      "Is Duplicate",
+    ];
+
+    const rows = verifications.map((v) => [
+      v.id,
+      v.date || v.createdAt.toISOString().split("T")[0],
+      v.time || v.createdAt.toISOString().split("T")[1]?.substring(0, 5) || "",
+      v.status,
+      v.confidence,
+      v.amount ?? 0,
+      `"${v.paymentMethod || ""}"`,
+      `"${v.transactionId || ""}"`,
+      `"${v.senderName || ""}"`,
+      `"${v.receiverName || ""}"`,
+      v.isDuplicate ? "YES" : "NO",
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Geba_Verification_Report_${user?.businessName || "Merchant"}_${Date.now()}.${format === "excel" ? "xlsx" : "csv"}"`,
+    );
+
+    res.status(200).send(csvContent);
+  } catch (error) {
+    logger.error("Export history failed:", error);
+    res.status(500).json({ success: false, message: "Failed to export report." });
   }
 }
 
