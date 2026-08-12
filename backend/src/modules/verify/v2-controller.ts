@@ -16,6 +16,8 @@ import { preprocessReceiptImage } from "../../utils/helper/image-preprocessor.js
 import { generateReceiptHash } from "./duplicate-detector.js";
 import { crossValidate } from "./cross-validator.js";
 import { addVerificationJobToQueue } from "./queue.js";
+import { generateRandomFileName } from "../../utils/helper/randomfileNameGenerator.js";
+import { uploadFile } from "../../utils/rustfsClient.js";
 
 export async function processV2Verification(
   userId: string,
@@ -44,9 +46,13 @@ export async function processV2Verification(
   let receiptHash: string | undefined = undefined;
 
   // 2. Preprocessing & Extraction (if file uploaded)
+  let uploadedKey: string | undefined = undefined;
   if (input.filePath) {
     const tPrep = Date.now();
     try {
+      uploadedKey = generateRandomFileName();
+      await uploadFile(uploadedKey, input.filePath);
+
       const preprocessed = await preprocessReceiptImage(input.filePath);
       recordStage("PREPROCESSING", "SUCCESS", Date.now() - tPrep);
 
@@ -200,7 +206,7 @@ export async function processV2Verification(
       currency: normalizedTx.currency || "ETB",
       date: normalizedTx.date,
       time: normalizedTx.time,
-      imageUrl: input.filePath ? `/uploads/${input.filePath.split("/").pop()}` : undefined,
+      imageUrl: uploadedKey,
       receiptUrl: receiptUrl || undefined,
       normalizedTransaction: normalizedTx as any,
       fraudSignals: fraudSignals as any,

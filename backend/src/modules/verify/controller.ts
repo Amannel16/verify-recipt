@@ -32,6 +32,8 @@ import {
 } from "./domain-validator.js";
 import { calculateRiskScore, type RiskAssessment } from "./risk-scorer.js";
 import { realTimeServiceEmiter } from "@/src/socket/service.js";
+import { generateRandomFileName } from "@/src/utils/helper/randomfileNameGenerator.js";
+import { uploadFile, getUrl, deleteFile } from "@/src/utils/rustfsClient.js";
 
 // ─────────────────────────────────────────────────────────────
 // MAIN: Verify Receipt
@@ -93,10 +95,12 @@ export async function verifyReceipt(
     }
 
     const imagePath = file.path;
-    const imageUrl = `/uploads/${file.filename}`;
+    const key = generateRandomFileName();
+    await uploadFile(key, imagePath);
+    const imageUrl = key;
 
     logger.info(
-      `📷 Receipt uploaded: ${file.filename} (${Math.round(file.size / 1024)}KB)`,
+      `📷 Receipt uploaded: ${file.filename} (${Math.round(file.size / 1024)}KB) -> ${key}`,
     );
 
     // Step 1.5: Image Preprocessing (Sharp)
@@ -456,7 +460,7 @@ export async function verifyReceipt(
         paymentMethod: aiResult.paymentMethod,
         reasons: allReasons,
         warnings: allWarnings,
-        imageUrl,
+        imageUrl: imageUrl ? await getUrl(imageUrl) : undefined,
         receiptUrl,
         scrapedData: scrapedData
           ? {
@@ -545,6 +549,12 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
       db.verification.count({ where: { userId } }),
     ]);
 
+    for (const verification of verifications) {
+      if (verification.imageUrl) {
+        verification.imageUrl = await getUrl(verification.imageUrl);
+      }
+    }
+
     logger.info(
       `Returned ${verifications.length} verifications for user ${userId}`,
     );
@@ -596,6 +606,10 @@ export async function getById(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    if (verification.imageUrl) {
+      verification.imageUrl = await getUrl(verification.imageUrl);
+    }
+
     logger.info(`Verification ${id} retrieved for user ${userId}`);
 
     res.json({
@@ -644,9 +658,10 @@ export async function deleteVerification(
 
     // Delete uploaded image file
     if (verification.imageUrl) {
-      const imagePath = path.resolve("." + verification.imageUrl);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
+      try {
+        await deleteFile(verification.imageUrl);
+      } catch (err) {
+        logger.error(`Failed to delete file from rustfs: ${verification.imageUrl}`, err);
       }
     }
 
