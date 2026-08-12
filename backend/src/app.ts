@@ -6,22 +6,13 @@ import { createServer } from "node:http";
 import appConfig from "./config/app_configs.js";
 import { logger } from "./utils/logger/logger.js";
 import { socketServer } from "./socket/index.js";
-import userRoutes from "./modules/user/route.js";
-import verifyRoutes from "./modules/verify/route.js";
-import subscriptionRoutes from "./modules/subscription/route.js";
-import notificationRoutes from "./modules/notification/route.js";
-import authRoutes from "./modules/auth/route.js";
-
-import v2VerifyRoutes from "./modules/verify/v2-route.js";
-
 import { securityHeadersMiddleware } from "./middlewares/security-headers.js";
 import { getFileStream } from "./utils/rustfsClient.js";
 
 import {
-  authRateLimiter,
-  verifyRateLimiter,
   generalRateLimiter,
 } from "./middlewares/rate-limiter.js";
+import appRoutes from "./modules/route.js";
 
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -122,18 +113,7 @@ app.use(express.static(path.resolve("public")));
 // Apply general rate limiting across all API routes
 app.use("/api", generalRateLimiter);
 
-// Health check
-app.get("/api/healthz", (_req, res) => {
-  res.json({
-    success: true,
-    message: "Geba AI backend is running",
-    data: {
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      version: "1.0.0",
-    },
-  });
-});
+
 
 // Web Account Deletion Request Page (Google Play Store Compliance)
 app.get("/delete-account", (_req, res) => {
@@ -313,13 +293,10 @@ app.get("/delete-account", (_req, res) => {
   `);
 });
 
-// API routes with endpoint-specific rate limiters
-app.use("/api/user", userRoutes);
-app.use("/api/auth", authRateLimiter, authRoutes);
-app.use("/api/verify", verifyRateLimiter, verifyRoutes);
-app.use("/api/v2/verify", v2VerifyRoutes);
-app.use("/api/subscription", subscriptionRoutes);
-app.use("/api/notification", notificationRoutes);
+app.use("/api", appRoutes);
+
+
+
 
 
 // ─────────────────────────────────────────────────────────────
