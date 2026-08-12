@@ -164,6 +164,17 @@ export const getBranches = catchAsync(async (req: Request, res: Response) => {
   const branches = await prisma.branch.findMany({
     where: { ownerId: userId },
     include: {
+      users: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          phoneNumber: true,
+          createdAt: true,
+        },
+      },
       _count: {
         select: { users: true, verifications: true },
       },
@@ -240,6 +251,171 @@ export const deleteBranch = catchAsync(async (req: Request, res: Response) => {
   res.json({
     success: true,
     message: "Branch deleted successfully.",
+  });
+});
+
+export const addBranchStaff = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  const branchId = req.params.id as string;
+
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Unauthorized" });
+    return;
+  }
+
+  const branch = await prisma.branch.findFirst({
+    where: { id: branchId, ownerId: userId },
+  });
+
+  if (!branch) {
+    res.status(404).json({ success: false, message: "Branch not found." });
+    return;
+  }
+
+  const { email, firstName, lastName, role, phoneNumber } = req.body;
+  if (!email || !firstName) {
+    res.status(400).json({ success: false, message: "Email and First Name are required." });
+    return;
+  }
+
+  const formattedRole = (role || "CASHIER").toUpperCase();
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Check if member already exists
+  const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (existingUser) {
+    // If existing member belongs to this owner, reassign branch and update role
+    if (existingUser.ownerId === userId) {
+      const updated = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          branchId,
+          role: formattedRole as any,
+          phoneNumber: phoneNumber || existingUser.phoneNumber,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          phoneNumber: true,
+          branchId: true,
+        },
+      });
+      res.json({
+        success: true,
+        message: `Assigned ${firstName} to ${branch.name} as ${formattedRole.toLowerCase()}.`,
+        data: updated,
+      });
+      return;
+    }
+    res.status(409).json({ success: false, message: "A user with this email already exists under another business." });
+    return;
+  }
+
+  const tempPassword = await bcrypt.hash("GebaTempPass123!", 10);
+  const newStaff = await prisma.user.create({
+    data: {
+      firstName,
+      lastName: lastName || "",
+      email: normalizedEmail,
+      password: tempPassword,
+      phoneNumber: phoneNumber || null,
+      role: formattedRole as any,
+      ownerId: userId,
+      branchId,
+      plan: "ENTERPRISE",
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      role: true,
+      phoneNumber: true,
+      branchId: true,
+      createdAt: true,
+    },
+  });
+
+  res.status(201).json({
+    success: true,
+    message: `Added ${firstName} to ${branch.name} as ${formattedRole.toLowerCase()}.`,
+    data: newStaff,
+  });
+});
+
+export const updateBranchStaff = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  const memberId = req.params.memberId as string;
+
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Unauthorized" });
+    return;
+  }
+
+  const member = await prisma.user.findFirst({
+    where: { id: memberId, ownerId: userId },
+  });
+
+  if (!member) {
+    res.status(404).json({ success: false, message: "Staff member not found." });
+    return;
+  }
+
+  const { role, branchId } = req.body;
+  const updateData: any = {};
+  if (role) updateData.role = role.toUpperCase();
+  if (branchId !== undefined) updateData.branchId = branchId;
+
+  const updated = await prisma.user.update({
+    where: { id: memberId },
+    data: updateData,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      role: true,
+      phoneNumber: true,
+      branchId: true,
+    },
+  });
+
+  res.json({
+    success: true,
+    message: "Staff member updated successfully.",
+    data: updated,
+  });
+});
+
+export const removeBranchStaff = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  const memberId = req.params.memberId as string;
+
+  if (!userId) {
+    res.status(401).json({ success: false, message: "Unauthorized" });
+    return;
+  }
+
+  const member = await prisma.user.findFirst({
+    where: { id: memberId, ownerId: userId },
+  });
+
+  if (!member) {
+    res.status(404).json({ success: false, message: "Staff member not found." });
+    return;
+  }
+
+  await prisma.user.update({
+    where: { id: memberId },
+    data: { branchId: null },
+  });
+
+  res.json({
+    success: true,
+    message: "Staff member unassigned from branch.",
   });
 });
 
