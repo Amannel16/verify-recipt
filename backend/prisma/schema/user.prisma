@@ -39,6 +39,9 @@ model User {
 enum ROLE {
   ADMIN
   CUSTOMER
+  MANAGER
+  CASHIER
+  VIEWER
 }
 
 enum AuthProvider {
