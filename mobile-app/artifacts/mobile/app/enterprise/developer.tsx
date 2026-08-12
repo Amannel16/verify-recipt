@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
   Platform,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +17,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { api } from "@/utils/api";
 
 interface ApiKey {
   id: string;
@@ -34,35 +36,6 @@ interface Webhook {
   isActive: boolean;
 }
 
-const INITIAL_KEYS: ApiKey[] = [
-  {
-    id: "1",
-    name: "Main POS Integration Key",
-    key: "pv_live_67aefc88e99ab1d8213bc0d74f2b",
-    prefix: "pv_live_67ae...",
-    lastUsedAt: "10 mins ago",
-    createdAt: "Jan 15, 2026",
-  },
-  {
-    id: "2",
-    name: "Web Store Checkout Key",
-    key: "pv_live_99bd881a200f331ca811220912ab",
-    prefix: "pv_live_99bd...",
-    lastUsedAt: "2 hours ago",
-    createdAt: "Feb 01, 2026",
-  },
-];
-
-const INITIAL_WEBHOOKS: Webhook[] = [
-  {
-    id: "1",
-    url: "https://api.mymerchantstore.com/webhooks/geba-verification",
-    secret: "whsec_88fa10928a01f92e",
-    events: ["verification.completed", "fraud.alert"],
-    isActive: true,
-  },
-];
-
 export default function DeveloperPortalScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -70,8 +43,11 @@ export default function DeveloperPortalScreen() {
   const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<"keys" | "webhooks">("keys");
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>(INITIAL_KEYS);
-  const [webhooks, setWebhooks] = useState<Webhook[]>(INITIAL_WEBHOOKS);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Add Key Modal State
   const [keyModalVisible, setKeyModalVisible] = useState(false);
@@ -84,30 +60,87 @@ export default function DeveloperPortalScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  function handleCreateApiKey() {
+  const fetchData = useCallback(async (isRefresh = false) => {
+    if (user?.plan !== "enterprise") {
+      setLoading(false);
+      return;
+    }
+
+    if (!isRefresh) setLoading(true);
+    try {
+      const [keysRes, webhooksRes] = await Promise.all([
+        api.get<any[]>("/user/api-keys"),
+        api.get<any[]>("/user/webhooks"),
+      ]);
+
+      if (keysRes.success && Array.isArray(keysRes.data)) {
+        const mappedKeys: ApiKey[] = keysRes.data.map((k: any) => ({
+          id: k.id,
+          name: k.name || "API Key",
+          key: k.key || k.prefix || "pv_live_...",
+          prefix: k.prefix || `${(k.key || "").substring(0, 12)}...`,
+          lastUsedAt: k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "Never",
+          createdAt: k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "Recently",
+        }));
+        setApiKeys(mappedKeys);
+      }
+
+      if (webhooksRes.success && Array.isArray(webhooksRes.data)) {
+        const mappedWebhooks: Webhook[] = webhooksRes.data.map((w: any) => ({
+          id: w.id,
+          url: w.url,
+          secret: w.secret || "whsec_...",
+          events: w.events || ["verification.completed"],
+          isActive: w.isActive ?? true,
+        }));
+        setWebhooks(mappedWebhooks);
+      }
+    } catch (err) {
+      console.error("Failed to fetch developer portal data:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user?.plan]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  async function handleCreateApiKey() {
     if (!newKeyName.trim()) {
       Alert.alert("Required", "Please provide a name for this API key.");
       return;
     }
 
-    const randomHex = Math.random().toString(36).substring(2, 12);
-    const fullKey = `pv_live_${randomHex}${Date.now().toString(36)}`;
-    const newKey: ApiKey = {
-      id: Date.now().toString(),
-      name: newKeyName.trim(),
-      key: fullKey,
-      prefix: `${fullKey.substring(0, 10)}...`,
-      lastUsedAt: "Never",
-      createdAt: "Just now",
-    };
-
-    setApiKeys((prev) => [newKey, ...prev]);
-    setNewKeyName("");
-    setKeyModalVisible(false);
-    Alert.alert(
-      "API Key Generated",
-      `Your new live API key has been created:\n\n${fullKey}\n\nPlease copy and store it securely.`,
-    );
+    setSubmitting(true);
+    try {
+      const res = await api.post<any>("/user/api-keys", { name: newKeyName.trim() });
+      if (res.success && res.data) {
+        const fullKey = res.data.key || `pv_live_${Math.random().toString(36).substring(2, 12)}`;
+        const newKey: ApiKey = {
+          id: res.data.id || Date.now().toString(),
+          name: res.data.name || newKeyName.trim(),
+          key: fullKey,
+          prefix: res.data.prefix || `${fullKey.substring(0, 12)}...`,
+          lastUsedAt: "Never",
+          createdAt: "Just now",
+        };
+        setApiKeys((prev) => [newKey, ...prev]);
+        setNewKeyName("");
+        setKeyModalVisible(false);
+        Alert.alert(
+          "API Key Generated",
+          `Your new live API key has been created:\n\n${fullKey}\n\nPlease copy and store it securely.`,
+        );
+      } else {
+        Alert.alert("Error", res.message || "Failed to generate API Key.");
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to generate API Key.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleRevokeApiKey(id: string, name: string) {
@@ -118,31 +151,59 @@ export default function DeveloperPortalScreen() {
         {
           text: "Revoke Key",
           style: "destructive",
-          onPress: () => setApiKeys((prev) => prev.filter((k) => k.id !== id)),
+          onPress: async () => {
+            try {
+              const res = await api.delete(`/user/api-keys/${id}`);
+              if (res.success) {
+                setApiKeys((prev) => prev.filter((k) => k.id !== id));
+                Alert.alert("Success", "API key revoked.");
+              } else {
+                Alert.alert("Error", res.message || "Failed to revoke API key.");
+              }
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "Failed to revoke API key.");
+            }
+          },
         },
         { text: "Cancel", style: "cancel" },
       ],
     );
   }
 
-  function handleCreateWebhook() {
+  async function handleCreateWebhook() {
     if (!newWebhookUrl.trim() || !newWebhookUrl.startsWith("http")) {
       Alert.alert("Invalid URL", "Please enter a valid HTTP/HTTPS endpoint URL.");
       return;
     }
 
-    const newHook: Webhook = {
-      id: Date.now().toString(),
-      url: newWebhookUrl.trim(),
-      secret: `whsec_${Math.random().toString(36).substring(2, 12)}`,
-      events: ["verification.completed", "fraud.alert"],
-      isActive: true,
-    };
+    setSubmitting(true);
+    try {
+      const res = await api.post<any>("/user/webhooks", {
+        url: newWebhookUrl.trim(),
+        events: ["verification.completed", "verification.suspicious", "fraud.alert"],
+      });
 
-    setWebhooks((prev) => [newHook, ...prev]);
-    setNewWebhookUrl("");
-    setWebhookModalVisible(false);
-    Alert.alert("Webhook Registered", `Successfully registered webhook endpoint: ${newHook.url}`);
+      if (res.success && res.data) {
+        const newHook: Webhook = {
+          id: res.data.id || Date.now().toString(),
+          url: res.data.url || newWebhookUrl.trim(),
+          secret: res.data.secret || `whsec_${Math.random().toString(36).substring(2, 12)}`,
+          events: res.data.events || ["verification.completed", "fraud.alert"],
+          isActive: res.data.isActive ?? true,
+        };
+
+        setWebhooks((prev) => [newHook, ...prev]);
+        setNewWebhookUrl("");
+        setWebhookModalVisible(false);
+        Alert.alert("Webhook Registered", `Successfully registered webhook endpoint: ${newHook.url}`);
+      } else {
+        Alert.alert("Error", res.message || "Failed to register webhook.");
+      }
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to register webhook.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleDeleteWebhook(id: string) {
@@ -153,7 +214,19 @@ export default function DeveloperPortalScreen() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => setWebhooks((prev) => prev.filter((w) => w.id !== id)),
+          onPress: async () => {
+            try {
+              const res = await api.delete(`/user/webhooks/${id}`);
+              if (res.success) {
+                setWebhooks((prev) => prev.filter((w) => w.id !== id));
+                Alert.alert("Success", "Webhook removed.");
+              } else {
+                Alert.alert("Error", res.message || "Failed to remove webhook.");
+              }
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "Failed to remove webhook.");
+            }
+          },
         },
         { text: "Cancel", style: "cancel" },
       ],
@@ -261,11 +334,35 @@ export default function DeveloperPortalScreen() {
       </View>
 
       {/* Content */}
-      {activeTab === "keys" ? (
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading developer data...</Text>
+        </View>
+      ) : activeTab === "keys" ? (
         <FlatList
           data={apiKeys}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 32 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                fetchData(true);
+              }}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="key-outline" size={48} color={colors.mutedForeground} />
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No API keys generated</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+                Tap the "+" button to generate your first live API integration key.
+              </Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
@@ -301,6 +398,25 @@ export default function DeveloperPortalScreen() {
           data={webhooks}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 32 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                fetchData(true);
+              }}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="globe-outline" size={48} color={colors.mutedForeground} />
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No webhooks registered</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+                Tap the "+" button to add a webhook URL for real-time verification events.
+              </Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
@@ -354,14 +470,20 @@ export default function DeveloperPortalScreen() {
               <TouchableOpacity
                 style={[styles.modalCancel, { borderColor: colors.border }]}
                 onPress={() => setKeyModalVisible(false)}
+                disabled={submitting}
               >
                 <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalSave, { backgroundColor: colors.primary }]}
                 onPress={handleCreateApiKey}
+                disabled={submitting}
               >
-                <Text style={styles.saveText}>Generate Key</Text>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveText}>Generate Key</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -392,14 +514,20 @@ export default function DeveloperPortalScreen() {
               <TouchableOpacity
                 style={[styles.modalCancel, { borderColor: colors.border }]}
                 onPress={() => setWebhookModalVisible(false)}
+                disabled={submitting}
               >
                 <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalSave, { backgroundColor: colors.primary }]}
                 onPress={handleCreateWebhook}
+                disabled={submitting}
               >
-                <Text style={styles.saveText}>Save Webhook</Text>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveText}>Save Webhook</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -454,6 +582,8 @@ const styles = StyleSheet.create({
   },
   activeTab: { elevation: 1 },
   tabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  loadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   list: { paddingHorizontal: 16, gap: 12 },
   card: { padding: 16, borderRadius: 16, borderWidth: 1, gap: 12 },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -475,6 +605,10 @@ const styles = StyleSheet.create({
   eventsRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
   eventBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   eventText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+
+  emptyState: { alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 10, paddingHorizontal: 30 },
+  emptyTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  emptySubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18 },
 
   // Modals
   modalOverlay: {
