@@ -6,6 +6,5 @@ dist/
 build/
 web-build/
 *.zip
-# .env
 .cache/
 uploads/
