@@ -180,6 +180,30 @@ export default function DashboardScreen() {
           </View>
         )}
 
+        {/* Usage bar (pro / enterprise plan) */}
+        {user?.plan && user.plan !== "free" && (
+          <View style={[styles.usageCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.usageHeader}>
+              <View style={styles.sectionTitleRow}>
+                <View style={[styles.sectionIconBox, { backgroundColor: (user.plan === "enterprise" ? colors.warning : colors.primary) + "18" }]}>
+                  <Ionicons name="infinite-outline" size={18} color={user.plan === "enterprise" ? colors.warning : colors.primary} />
+                </View>
+                <Text style={[styles.usageTitle, { color: colors.foreground }]}>
+                  {user.plan === "enterprise" ? "Enterprise Plan (Unlimited Scans)" : "Pro Merchant (Unlimited Scans)"}
+                </Text>
+              </View>
+              <View style={[styles.planPill, { backgroundColor: (user.plan === "enterprise" ? colors.warning : colors.primary) + "20" }]}>
+                <Text style={[styles.planText, { color: user.plan === "enterprise" ? colors.warning : colors.primary }]}>ACTIVE</Text>
+              </View>
+            </View>
+            <Text style={[styles.usageMeta, { color: colors.mutedForeground, marginTop: 4 }]}>
+              {user.plan === "enterprise"
+                ? "Unlimited verifications · Multi-branch syncing · Webhooks & API · SLA 99.9%"
+                : "Unlimited verifications · AI Cross-validation · 10 Team Members · Export PDF/Excel"}
+            </Text>
+          </View>
+        )}
+
         {/* Monthly Activity Chart */}
         <View style={[styles.chartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.sectionTitleRow}>
