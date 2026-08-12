@@ -240,7 +240,7 @@ export default function TeamScreen() {
                 onPress={() => setInviteRole(r)}
               >
                 <Text style={[styles.roleChipText, { color: inviteRole === r ? ROLE_COLORS[r] : colors.mutedForeground }]}>
-                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                  {r === "manager" ? "Branch Manager" : r.charAt(0).toUpperCase() + r.slice(1)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -307,7 +307,7 @@ export default function TeamScreen() {
                 <View style={styles.memberMeta}>
                   <View style={[styles.roleBadge, { backgroundColor: (ROLE_COLORS[item.role] || colors.primary) + "15" }]}>
                     <Text style={[styles.roleText, { color: ROLE_COLORS[item.role] || colors.primary }]}>
-                      {item.role.charAt(0).toUpperCase() + item.role.slice(1)}
+                      {item.role === "manager" ? "Branch Manager" : item.role.charAt(0).toUpperCase() + item.role.slice(1)}
                     </Text>
                   </View>
                   <Text style={[styles.joinedText, { color: colors.mutedForeground }]}>Joined {item.joinedAt}</Text>
