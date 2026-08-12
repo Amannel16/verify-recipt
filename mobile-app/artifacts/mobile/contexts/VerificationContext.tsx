@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { api } from "@/utils/api";
+import { api, API_BASE_URL } from "@/utils/api";
 
 export type VerificationStatus = "approved" | "suspicious" | "rejected";
 
@@ -77,6 +77,14 @@ const STORAGE_KEY = "geba_verifications";
 // Normalize backend verification to frontend shape
 function normalizeVerification(v: Record<string, unknown>): VerificationRecord {
   const status = ((v.status as string) ?? "SUSPICIOUS").toLowerCase() as VerificationStatus;
+
+  const resolveUrl = (url?: string) => {
+    if (!url) return undefined;
+    if (url.startsWith("http") || url.startsWith("data:")) return url;
+    const cleanBase = API_BASE_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
+    return `${cleanBase}${url.startsWith("/") ? "" : "/"}${url}`;
+  };
+
   return {
     id: (v.id as string) ?? "",
     status,
@@ -95,7 +103,7 @@ function normalizeVerification(v: Record<string, unknown>): VerificationRecord {
     warnings: ((v.warnings as string[]) ?? []).filter(
       (w) => !/gemini|api failure|api key|vision/i.test(w)
     ),
-    imageUri: (v.imageUrl as string) ?? (v.imageUri as string) ?? undefined,
+    imageUri: resolveUrl((v.imageUrl as string) ?? (v.imageUri as string)),
     createdAt: (v.createdAt as string) ?? new Date().toISOString(),
     userId: (v.userId as string) ?? "",
     receiptUrl: (v.receiptUrl as string) ?? null,
