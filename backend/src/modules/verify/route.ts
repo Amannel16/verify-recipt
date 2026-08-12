@@ -1,9 +1,11 @@
-import { Router } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import authMiddleware from "@/src/middlewares/authenticator.js";
+import { apiKeyAuthMiddleware } from "@/src/middlewares/api-key-auth.js";
 import { logger } from "@/src/utils/logger/logger.js";
 import {
   verifyReceipt,
   getHistory,
+  exportHistory,
   getById,
   deleteVerification,
   getStats,
@@ -12,11 +14,14 @@ import { upload } from "@/src/utils/helper/multer.js";
 
 const verifyRoutes = Router();
 
+// Middleware supporting either standard JWT session OR X-API-Key header authentication
+const dualAuth = [apiKeyAuthMiddleware, authMiddleware];
+
 // Verify a receipt (accepts image upload + optional transactionId in body)
 verifyRoutes.post(
   "/receipt",
-  authMiddleware,
-  (req, _res, next) => {
+  dualAuth,
+  (req: Request, _res: Response, next: NextFunction) => {
     logger.info(
       `Receipt verification request received for user ${req.user?.id || "unknown"}`,
     );
@@ -26,11 +31,24 @@ verifyRoutes.post(
   verifyReceipt,
 );
 
+// Export verification reports (PDF / Excel - Pro & Enterprise feature)
+verifyRoutes.get(
+  "/export",
+  dualAuth,
+  (req: Request, _res: Response, next: NextFunction) => {
+    logger.info(
+      `Verification export requested by user ${req.user?.id || "unknown"}`,
+    );
+    next();
+  },
+  exportHistory,
+);
+
 // Get verification stats
 verifyRoutes.get(
   "/stats",
-  authMiddleware,
-  (req, _res, next) => {
+  dualAuth,
+  (req: Request, _res: Response, next: NextFunction) => {
     logger.info(
       `Verification stats requested by user ${req.user?.id || "unknown"}`,
     );
@@ -39,11 +57,11 @@ verifyRoutes.get(
   getStats,
 );
 
-// Get verification history (paginated)
+// Get verification history (paginated, plan-restricted)
 verifyRoutes.get(
   "/history",
-  authMiddleware,
-  (req, _res, next) => {
+  dualAuth,
+  (req: Request, _res: Response, next: NextFunction) => {
     logger.info(
       `Verification history requested by user ${req.user?.id || "unknown"}`,
     );
@@ -52,7 +70,7 @@ verifyRoutes.get(
   getHistory,
 );
 
-verifyRoutes.get("/debug-history", async (req, res) => {
+verifyRoutes.get("/debug-history", async (_req: Request, res: Response) => {
   try {
     logger.info("Debug verification history endpoint called");
     const { db } = await import("@/src/config/db.js");
@@ -69,8 +87,8 @@ verifyRoutes.get("/debug-history", async (req, res) => {
 // Get single verification by ID
 verifyRoutes.get(
   "/:id",
-  authMiddleware,
-  (req, _res, next) => {
+  dualAuth,
+  (req: Request, _res: Response, next: NextFunction) => {
     logger.info(
       `Verification lookup requested for id ${req.params.id} by user ${req.user?.id || "unknown"}`,
     );
@@ -82,8 +100,8 @@ verifyRoutes.get(
 // Delete a verification
 verifyRoutes.delete(
   "/:id",
-  authMiddleware,
-  (req, _res, next) => {
+  dualAuth,
+  (req: Request, _res: Response, next: NextFunction) => {
     logger.info(
       `Verification deletion requested for id ${req.params.id} by user ${req.user?.id || "unknown"}`,
     );
