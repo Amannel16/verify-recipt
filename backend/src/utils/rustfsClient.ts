@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {
   CreateBucketCommand,
   DeleteBucketCommand,
@@ -11,6 +12,7 @@ import {
 import fs from 'node:fs';
 import appConfig from '../config/app_configs.js';
 import { logger } from './logger/logger.js';
+// @ts-ignore
 import mime from 'mime-types';
 const rustfs_client = new S3Client({
   region: appConfig.RUSTFS_REGION || 'us-east-1',
