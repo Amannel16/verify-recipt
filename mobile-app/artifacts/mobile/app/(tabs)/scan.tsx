@@ -26,8 +26,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVerifications } from "@/contexts/VerificationContext";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { analyzeReceipt } from "@/utils/verificationEngine";
+
 
 type Phase = "idle" | "selected" | "analyzing" | "done";
 
@@ -167,9 +169,9 @@ export default function ScanScreen() {
         colors={[colors.primary + "20", colors.background]}
         style={[styles.header, { paddingTop: topPad + 20 }]}
       >
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Scan Receipt</Text>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("scan.title")}</Text>
         <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
-          Verify payment authenticity with AI
+          {t("scan.subtitle")}
         </Text>
       </LinearGradient>
 

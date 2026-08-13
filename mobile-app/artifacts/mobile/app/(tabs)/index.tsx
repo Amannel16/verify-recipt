@@ -16,7 +16,9 @@ import { VerificationCard } from "@/components/VerificationCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVerifications } from "@/contexts/VerificationContext";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -25,6 +27,7 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const { verifications, getStats } = useVerifications();
   const { unreadCount } = useNotifications();
+  const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const stats = getStats();
@@ -66,9 +69,10 @@ export default function DashboardScreen() {
       >
         <View style={styles.headerRow}>
           <View>
-            <Text style={[styles.greeting, { color: colors.mutedForeground }]}>Good day,</Text>
+            <Text style={[styles.greeting, { color: colors.mutedForeground }]}>{t("dash.welcome")},</Text>
             <Text style={[styles.name, { color: colors.foreground }]}>{firstName}</Text>
           </View>
+
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={[styles.notifBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -140,14 +144,15 @@ export default function DashboardScreen() {
         {/* Stats */}
         <View style={styles.statsGrid}>
           <View style={styles.statsRow}>
-            <StatCard label="Total Scans" value={stats.total} icon="scan-outline" color={colors.primary} delay={0} />
-            <StatCard label="Approved" value={stats.approved} icon="checkmark-circle-outline" color={colors.success} delay={100} />
+            <StatCard label={t("dash.totalScans")} value={stats.total} icon="scan-outline" color={colors.primary} delay={0} />
+            <StatCard label={t("dash.approved")} value={stats.approved} icon="checkmark-circle-outline" color={colors.success} delay={100} />
           </View>
           <View style={styles.statsRow}>
-            <StatCard label="Rejected" value={stats.rejected} icon="close-circle-outline" color={colors.destructive} delay={200} />
+            <StatCard label={t("dash.rejected")} value={stats.rejected} icon="close-circle-outline" color={colors.destructive} delay={200} />
             <StatCard label="Fraud Alerts" value={stats.fraudAttempts} icon="warning-outline" color={colors.warning} delay={300} />
           </View>
         </View>
+
 
         {/* Usage bar (free plan) */}
         {user?.plan === "free" && (
@@ -240,23 +245,24 @@ export default function DashboardScreen() {
               <View style={[styles.sectionIconBox, { backgroundColor: colors.success + "18" }]}>
                 <Ionicons name="receipt-outline" size={16} color={colors.success} />
               </View>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Recent Verifications</Text>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("dash.recentVerifications")}</Text>
             </View>
             <TouchableOpacity onPress={() => router.push("/(tabs)/history")}>
-              <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
+              <Text style={[styles.seeAll, { color: colors.primary }]}>{t("dash.viewAll")}</Text>
             </TouchableOpacity>
           </View>
           {recent.length === 0 ? (
             <View style={[styles.emptyState, { borderColor: colors.border }]}>
               <Ionicons name="document-outline" size={32} color={colors.mutedForeground} />
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                No verifications yet. Scan a receipt to get started.
+                {t("dash.noVerifications")}
               </Text>
             </View>
           ) : (
             recent.map((v) => <VerificationCard key={v.id} record={v} />)
           )}
         </View>
+
       </View>
     </ScrollView>
   );

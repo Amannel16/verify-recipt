@@ -10,29 +10,31 @@ import { Platform, StyleSheet, View } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function NativeTabLayout() {
+  const { t } = useLanguage();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }} />
-        <Label>Dashboard</Label>
+        <Label>{t("nav.dashboard")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="scan">
         <Icon sf={{ default: "camera.viewfinder", selected: "camera.viewfinder" }} />
-        <Label>Scan</Label>
+        <Label>{t("nav.scan")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="history">
         <Icon sf={{ default: "clock", selected: "clock.fill" }} />
-        <Label>History</Label>
+        <Label>{t("nav.history")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="team">
         <Icon sf={{ default: "person.2", selected: "person.2.fill" }} />
-        <Label>Team</Label>
+        <Label>{t("nav.team")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person.circle", selected: "person.circle.fill" }} />
-        <Label>Profile</Label>
+        <Label>{t("nav.profile")}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -41,8 +43,10 @@ function NativeTabLayout() {
 function ClassicTabLayout() {
   const colors = useColors();
   const { isDark } = useTheme();
+  const { t } = useLanguage();
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+
 
 
   return (
@@ -81,7 +85,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
+          title: t("nav.dashboard"),
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="square.grid.2x2" tintColor={color} size={22} />
@@ -93,7 +97,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: "Scan",
+          title: t("nav.scan"),
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="camera.viewfinder" tintColor={color} size={22} />
@@ -105,7 +109,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: "History",
+          title: t("nav.history"),
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="clock" tintColor={color} size={22} />
@@ -117,7 +121,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="team"
         options={{
-          title: "Team",
+          title: t("nav.team"),
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="person.2" tintColor={color} size={22} />
@@ -129,7 +133,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t("nav.profile"),
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="person.circle" tintColor={color} size={22} />
@@ -138,6 +142,7 @@ function ClassicTabLayout() {
             ),
         }}
       />
+
     </Tabs>
   );
 }

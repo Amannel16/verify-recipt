@@ -16,9 +16,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVerifications } from "@/contexts/VerificationContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
 import { LanguageModal } from "@/components/LanguageModal";
 import { FeedbackModal } from "@/components/FeedbackModal";
+
 
 
 interface MenuItemProps {
@@ -59,11 +61,13 @@ export default function ProfileScreen() {
   const { user, signOut, deleteAccount } = useAuth();
   const { getStats } = useVerifications();
   const { isDark, toggleTheme } = useTheme();
+  const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState(true);
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
-  const [selectedLang, setSelectedLang] = useState("English");
+  const [selectedLang, setSelectedLang] = useState(language === "am" ? "አማርኛ" : "English");
+
 
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -109,7 +113,7 @@ export default function ProfileScreen() {
     >
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 20 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Profile</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("profile.title")}</Text>
       </View>
 
       {/* Profile card */}
@@ -131,9 +135,9 @@ export default function ProfileScreen() {
       {/* Stats */}
       <View style={styles.statsRow}>
         {[
-          { label: "Total Scans", value: stats.total, icon: "scan-outline", color: colors.primary },
-          { label: "Approved", value: stats.approved, icon: "checkmark-circle-outline", color: colors.success },
-          { label: "Rejected", value: stats.rejected, icon: "close-circle-outline", color: colors.destructive },
+          { label: t("dash.totalScans"), value: stats.total, icon: "scan-outline", color: colors.primary },
+          { label: t("dash.approved"), value: stats.approved, icon: "checkmark-circle-outline", color: colors.success },
+          { label: t("dash.rejected"), value: stats.rejected, icon: "close-circle-outline", color: colors.destructive },
         ].map((s) => (
           <View key={s.label} style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Ionicons name={s.icon as never} size={18} color={s.color} />
@@ -144,32 +148,32 @@ export default function ProfileScreen() {
       </View>
 
       {/* Account Section */}
-      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Account</Text>
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>{t("profile.account")}</Text>
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <MenuItem
           icon="person-outline"
-          label="Edit Profile"
+          label={t("profile.editProfile")}
           onPress={() => router.push("/profile/edit")}
         />
         <MenuItem
           icon="business-outline"
-          label="Business Type"
+          label={t("profile.businessType")}
           value={user?.businessType}
         />
         <MenuItem
           icon="call-outline"
-          label="Phone Number"
+          label={t("profile.phone")}
           value={user?.phoneNumber || "Not set"}
         />
       </View>
 
       {/* Subscription */}
-      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Subscription</Text>
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>{t("profile.subscription")}</Text>
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <MenuItem
           icon="star-outline"
           iconColor={planColor}
-          label="Current Plan"
+          label={t("profile.currentPlan")}
           value={planLabel}
           onPress={() => router.push("/subscription")}
         />
@@ -177,48 +181,48 @@ export default function ProfileScreen() {
           <MenuItem
             icon="rocket-outline"
             iconColor={colors.primary}
-            label="Upgrade to Pro"
+            label={t("profile.upgradePro")}
             onPress={() => router.push("/subscription")}
           />
         )}
         <MenuItem
           icon="card-outline"
-          label="Payment History"
+          label={t("profile.paymentHistory")}
           onPress={() => router.push("/payment/history")}
         />
       </View>
 
       {/* Developer Options */}
-      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Developer</Text>
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>{t("profile.developer")}</Text>
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <MenuItem
           icon="code-working-outline"
-          label="API Integration & Webhooks"
+          label={t("profile.apiIntegration")}
           onPress={() => router.push("/enterprise/developer")}
         />
       </View>
 
       {/* Enterprise Tools */}
-      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Enterprise Tools</Text>
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>{t("profile.enterpriseTools")}</Text>
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <MenuItem
           icon="business-outline"
-          label="Branch Management"
+          label={t("profile.branchManagement")}
           onPress={() => router.push("/enterprise/branches")}
         />
         <MenuItem
           icon="receipt-outline"
-          label="Audit Logs"
+          label={t("profile.auditLogs")}
           onPress={() => router.push("/enterprise/audit-logs")}
         />
       </View>
 
       {/* Preferences */}
-      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Preferences</Text>
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>{t("profile.preferences")}</Text>
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <MenuItem
           icon="moon-outline"
-          label="Dark Mode"
+          label={t("profile.darkMode")}
           right={
             <Switch
               value={isDark}
@@ -229,7 +233,7 @@ export default function ProfileScreen() {
         />
         <MenuItem
           icon="notifications-outline"
-          label="Notifications"
+          label={t("profile.notifications")}
           right={
             <Switch
               value={notifications}
@@ -240,20 +244,20 @@ export default function ProfileScreen() {
         />
         <MenuItem
           icon="language-outline"
-          label="Language"
-          value={selectedLang}
+          label={t("profile.language")}
+          value={language === "am" ? "አማርኛ" : "English"}
           onPress={() => setLangModalVisible(true)}
         />
       </View>
 
       {/* Support */}
-      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Support</Text>
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>{t("profile.support")}</Text>
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {user?.plan === "enterprise" && (
           <MenuItem
             icon="call-outline"
             iconColor={colors.warning}
-            label="Dedicated Manager"
+            label={t("profile.dedicatedManager")}
             value="Abebe K."
             onPress={() => Alert.alert(
               "Dedicated Account Manager",
@@ -264,7 +268,7 @@ export default function ProfileScreen() {
         )}
         <MenuItem
           icon="help-circle-outline"
-          label="Help Center"
+          label={t("profile.helpCenter")}
           onPress={() => {
             if (user?.plan === "free") {
               Alert.alert(
@@ -283,21 +287,22 @@ export default function ProfileScreen() {
         />
         <MenuItem
           icon="chatbubble-outline"
-          label="Send Feedback"
+          label={t("profile.sendFeedback")}
           onPress={() => setFeedbackModalVisible(true)}
         />
         <MenuItem
           icon="shield-outline"
-          label="Privacy Policy"
+          label={t("profile.privacyPolicy")}
           onPress={() => Alert.alert("Privacy Policy", "Your data is encrypted and never shared without consent.")}
         />
       </View>
 
       {/* Account Actions */}
       <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]}>
-        <MenuItem icon="log-out-outline" iconColor={colors.destructive} label="Sign Out" destructive onPress={handleSignOut} right={<View />} />
-        <MenuItem icon="trash-outline" iconColor={colors.destructive} label="Delete Account" destructive onPress={handleDeleteAccount} right={<View />} />
+        <MenuItem icon="log-out-outline" iconColor={colors.destructive} label={t("profile.signOut")} destructive onPress={handleSignOut} right={<View />} />
+        <MenuItem icon="trash-outline" iconColor={colors.destructive} label={t("profile.deleteAccount")} destructive onPress={handleDeleteAccount} right={<View />} />
       </View>
+
 
       <Text style={[styles.version, { color: colors.mutedForeground }]}>Geba AI v1.0.0</Text>
 

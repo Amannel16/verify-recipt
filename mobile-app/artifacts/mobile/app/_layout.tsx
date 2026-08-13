@@ -19,7 +19,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { VerificationProvider } from "@/contexts/VerificationContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { API_BASE_URL } from "@/utils/api";
+
 
 if (process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
@@ -79,14 +81,17 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <ThemeProvider>
-                <AuthProvider>
-                  <VerificationProvider>
-                    <NotificationProvider>
-                      <RootLayoutNav />
-                    </NotificationProvider>
-                  </VerificationProvider>
-                </AuthProvider>
+                <LanguageProvider>
+                  <AuthProvider>
+                    <VerificationProvider>
+                      <NotificationProvider>
+                        <RootLayoutNav />
+                      </NotificationProvider>
+                    </VerificationProvider>
+                  </AuthProvider>
+                </LanguageProvider>
               </ThemeProvider>
+
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

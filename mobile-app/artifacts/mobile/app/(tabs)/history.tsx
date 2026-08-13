@@ -16,7 +16,9 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { VerificationCard } from "@/components/VerificationCard";
 import { VerificationRecord, VerificationStatus, useVerifications } from "@/contexts/VerificationContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useColors } from "@/hooks/useColors";
+
 
 type Filter = "all" | "today" | "week" | "month";
 type StatusFilter = "all" | VerificationStatus;
@@ -128,9 +130,9 @@ export default function HistoryScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 20 }]}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: colors.foreground }]}>History</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>{t("history.title")}</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {filtered.length} verification{filtered.length !== 1 ? "s" : ""}
+            {filtered.length} {t("history.title")}
           </Text>
         </View>
         <TouchableOpacity
@@ -154,7 +156,7 @@ export default function HistoryScreen() {
         <Ionicons name="search-outline" size={18} color={colors.mutedForeground} />
         <TextInput
           style={[styles.searchInput, { color: colors.foreground }]}
-          placeholder="Search by name, ID or amount..."
+          placeholder={t("history.searchPlaceholder")}
           placeholderTextColor={colors.mutedForeground}
           value={search}
           onChangeText={setSearch}

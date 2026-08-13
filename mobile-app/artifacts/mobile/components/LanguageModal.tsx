@@ -13,7 +13,9 @@ import {
 } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { api } from "@/utils/api";
+
 
 interface LanguageModalProps {
   visible: boolean;
@@ -29,7 +31,9 @@ export function LanguageModal({
   onSelectLanguage,
 }: LanguageModalProps) {
   const colors = useColors();
+  const { language, setLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"select" | "translator">("select");
+
   const [inputText, setInputText] = useState("");
   const [translatedText, setTranslatedText] = useState("");
   const [sourceLang, setSourceLang] = useState<"auto" | "en" | "am">("auto");
@@ -165,7 +169,7 @@ export function LanguageModal({
                 { code: "en", label: "English", sublabel: "Default System Language" },
                 { code: "am", label: "አማርኛ (Amharic)", sublabel: "Ethiopian National Language" },
               ].map((item) => {
-                const selected = currentLanguage === item.label || currentLanguage === item.code;
+                const selected = language === item.code || currentLanguage === item.label;
                 return (
                   <TouchableOpacity
                     key={item.code}
@@ -173,11 +177,13 @@ export function LanguageModal({
                       styles.langOption,
                       { backgroundColor: colors.background, borderColor: selected ? colors.primary : colors.border },
                     ]}
-                    onPress={() => {
+                    onPress={async () => {
+                      await setLanguage(item.code as "en" | "am");
                       onSelectLanguage(item.label);
-                      Alert.alert("Language Updated", `App language set to ${item.label}`);
+                      Alert.alert(t("lang.updated"), `${item.label}`);
                     }}
                   >
+
                     <View style={styles.langTextCol}>
                       <Text style={[styles.langLabel, { color: colors.foreground }]}>{item.label}</Text>
                       <Text style={[styles.langSublabel, { color: colors.mutedForeground }]}>
