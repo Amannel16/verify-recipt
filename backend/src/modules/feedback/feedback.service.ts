@@ -18,6 +18,9 @@ export interface FeedbackFilterOptions {
   limit?: number;
 }
 
+// In-memory store fallback when PostgreSQL database is unreachable
+const memoryFeedbackStore: any[] = [];
+
 export class FeedbackService {
   /**
    * Submit feedback linked to a translation ID
@@ -91,18 +94,20 @@ export class FeedbackService {
           : null,
       };
     } catch (dbError) {
-      logger.error("Failed to store feedback in database:", dbError);
-      // Fallback in-memory object if database is unavailable
-      return {
+      logger.error("Failed to store feedback in database, storing in memory fallback:", dbError);
+      const fallbackRecord = {
         id: `f_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         translationId,
         rating,
         comment: comment ? comment.trim() : null,
         isHelpful,
         flagReason: flagReason || null,
+        clientIp: clientIp || null,
         createdAt: new Date(),
         translation: null,
       };
+      memoryFeedbackStore.unshift(fallbackRecord);
+      return fallbackRecord;
     }
   }
 
@@ -168,10 +173,30 @@ export class FeedbackService {
         },
       };
     } catch (dbError) {
-      logger.error("Failed to query feedback from database:", dbError);
+      logger.error("Failed to query feedback from database, reading memory fallback:", dbError);
+
+      let filtered = memoryFeedbackStore;
+      if (options.translationId) {
+        filtered = filtered.filter((f) => f.translationId === options.translationId);
+      }
+      if (options.flagReason) {
+        filtered = filtered.filter((f) => f.flagReason === options.flagReason);
+      }
+      if (typeof options.isHelpful === "boolean") {
+        filtered = filtered.filter((f) => f.isHelpful === options.isHelpful);
+      }
+
+      const total = filtered.length;
+      const paginated = filtered.slice(skip, skip + limit);
+
       return {
-        feedback: [],
-        pagination: { total: 0, page: 1, pageSize: limit, totalPages: 1 },
+        feedback: paginated,
+        pagination: {
+          total,
+          page,
+          pageSize: limit,
+          totalPages: Math.ceil(total / limit) || 1,
+        },
       };
     }
   }
@@ -210,12 +235,26 @@ export class FeedbackService {
         })),
       };
     } catch (err) {
-      logger.error("Error exporting feedback dataset:", err);
+      logger.error("Error exporting feedback dataset from database, exporting memory fallback:", err);
       return {
         exportVersion: "1.0",
         generatedAt: new Date().toISOString(),
-        totalCount: 0,
-        dataset: [],
+        totalCount: memoryFeedbackStore.length,
+        dataset: memoryFeedbackStore.map((r: any) => ({
+          feedbackId: r.id,
+          translationId: r.translationId,
+          rating: r.rating,
+          isHelpful: r.isHelpful,
+          flagReason: r.flagReason,
+          userComment: r.comment,
+          createdAt: r.createdAt,
+          inputText: null,
+          translatedText: null,
+          sourceLanguage: null,
+          targetLanguage: null,
+          detectedLanguage: null,
+          engine: null,
+        })),
       };
     }
   }
