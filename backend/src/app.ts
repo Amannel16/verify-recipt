@@ -106,6 +106,12 @@ app.get("/.well-known/assetlinks.json", (_req, res) => {
 // Serve public static assets (including /.well-known)
 app.use(express.static(path.resolve("public")));
 
+// Route to serve the translation & feedback workbench UI
+app.get("/translate-ui", (_req, res) => {
+  res.sendFile(path.resolve("public/translate.html"));
+});
+
+
 // ─────────────────────────────────────────────────────────────
 // Routes & Rate Limiting
 // ─────────────────────────────────────────────────────────────
