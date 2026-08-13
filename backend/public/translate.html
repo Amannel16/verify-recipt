@@ -516,9 +516,10 @@
     <main id="tabAdmin" class="main-card admin-view">
       <div class="admin-header">
         <h2>Feedback Records & Analytics</h2>
-        <a href="/api/feedback/export" download="translation_feedback.json" class="export-btn">
+        <a href="/feedback/export" download="translation_feedback.json" class="export-btn">
           📥 Export JSON Dataset
         </a>
+
       </div>
 
       <div style="overflow-x: auto;">
@@ -623,7 +624,7 @@
       translateBtn.innerText = 'Translating...';
 
       try {
-        const res = await fetch('/api/translate', {
+        let res = await fetch('/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -632,6 +633,19 @@
             targetLanguage
           })
         });
+
+        if (!res.ok && res.status === 404) {
+          res = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inputText,
+              sourceLanguage: sourceLanguage === 'auto' ? undefined : sourceLanguage,
+              targetLanguage
+            })
+          });
+        }
+
 
         const json = await res.json();
         if (res.ok && json.success) {
@@ -715,7 +729,7 @@
       const comment = document.getElementById('feedbackComment').value;
 
       try {
-        const res = await fetch('/api/feedback', {
+        let res = await fetch('/feedback', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -726,6 +740,21 @@
             flagReason: selectedFlagReason
           })
         });
+
+        if (!res.ok && res.status === 404) {
+          res = await fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              translationId: currentTranslationId,
+              rating: selectedRating,
+              isHelpful: selectedHelpful,
+              comment,
+              flagReason: selectedFlagReason
+            })
+          });
+        }
+
 
         const data = await res.json();
         if (res.ok && data.success) {
@@ -758,8 +787,12 @@
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Loading feedback logs...</td></tr>';
 
       try {
-        const res = await fetch('/api/feedback');
+        let res = await fetch('/feedback');
+        if (!res.ok && res.status === 404) {
+          res = await fetch('/api/feedback');
+        }
         const json = await res.json();
+
         if (res.ok && json.success && json.data.feedback) {
           const list = json.data.feedback;
           if (list.length === 0) {
