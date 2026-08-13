@@ -293,7 +293,7 @@ export default function ProfileScreen() {
         <MenuItem
           icon="shield-outline"
           label={t("profile.privacyPolicy")}
-          onPress={() => Alert.alert("Privacy Policy", "Your data is encrypted and never shared without consent.")}
+          onPress={() => router.push("/privacy-policy")}
         />
       </View>
 
