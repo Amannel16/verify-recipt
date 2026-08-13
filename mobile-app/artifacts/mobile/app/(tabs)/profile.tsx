@@ -17,6 +17,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useVerifications } from "@/contexts/VerificationContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useColors } from "@/hooks/useColors";
+import { LanguageModal } from "@/components/LanguageModal";
+import { FeedbackModal } from "@/components/FeedbackModal";
+
 
 interface MenuItemProps {
   icon: string;
@@ -58,6 +61,10 @@ export default function ProfileScreen() {
   const { isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState(true);
+  const [langModalVisible, setLangModalVisible] = useState(false);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [selectedLang, setSelectedLang] = useState("English");
+
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -234,8 +241,8 @@ export default function ProfileScreen() {
         <MenuItem
           icon="language-outline"
           label="Language"
-          value="English"
-          onPress={() => Alert.alert("Language", "Multi-language support coming soon.")}
+          value={selectedLang}
+          onPress={() => setLangModalVisible(true)}
         />
       </View>
 
@@ -277,7 +284,7 @@ export default function ProfileScreen() {
         <MenuItem
           icon="chatbubble-outline"
           label="Send Feedback"
-          onPress={() => Alert.alert("Feedback", "Thank you! Your feedback helps us improve Geba AI.")}
+          onPress={() => setFeedbackModalVisible(true)}
         />
         <MenuItem
           icon="shield-outline"
@@ -293,9 +300,26 @@ export default function ProfileScreen() {
       </View>
 
       <Text style={[styles.version, { color: colors.mutedForeground }]}>Geba AI v1.0.0</Text>
+
+      {/* Interactive Modals */}
+      <LanguageModal
+        visible={langModalVisible}
+        onClose={() => setLangModalVisible(false)}
+        currentLanguage={selectedLang}
+        onSelectLanguage={(lang) => {
+          setSelectedLang(lang);
+          setLangModalVisible(false);
+        }}
+      />
+
+      <FeedbackModal
+        visible={feedbackModalVisible}
+        onClose={() => setFeedbackModalVisible(false)}
+      />
     </ScrollView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
