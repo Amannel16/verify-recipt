@@ -89,8 +89,13 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     "fb.commentLabel": "Comments & Suggestions",
     "fb.commentPlaceholder": "Tell us what worked well or what needs improvement...",
     "fb.submit": "Submit Feedback",
-    "fb.receivedTitle": "Feedback Received! 🙌",
-    "fb.receivedBody": "Thank you for sharing your experience. Your feedback directly helps us train and improve Geba AI.",
+    // Privacy Policy Screen
+    "privacy.title": "Privacy Policy",
+    "privacy.subtitle": "How Geba AI protects, encrypts, and respects your data",
+    "privacy.lastUpdated": "Last Updated: August 2026 • Version 1.2",
+    "privacy.searchPlaceholder": "Search privacy topics (e.g. OCR, Bank, Deletion)...",
+    "privacy.requestDeletion": "Request Account & Data Deletion",
+    "privacy.deletionDesc": "Exercise your right to permanent data erasure under Google Play & GDPR compliance.",
   },
 
   am: {
@@ -181,7 +186,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     "fb.commentLabel": "አስተያየቶች እና አስተያየቶች",
     "fb.commentPlaceholder": "ምን በጥሩ ሁኔታ እንደሰራ ወይም ምን መሻሻል እንዳለበት ይንገሩን...",
     "fb.submit": "አስተያየት ያስገቡ",
-    "fb.receivedTitle": "አስተያየትዎ ተቀብለናል! 🙌",
-    "fb.receivedBody": "ልምድዎን ስላካፈሉን እናመሰግናለን። አስተያየትዎገባ ኤአይን ለማሻሻል ይረዳናል።",
+    // Privacy Policy Screen
+    "privacy.title": "የግላዊነት ፖሊሲ",
+    "privacy.subtitle": "ገባ ኤአይ መረጃዎን እንዴት እንደሚጠብቅ፣ እንደሚስጥር እና እንደሚያከብር",
+    "privacy.lastUpdated": "መጨረሻ የተሻሻለው፡ ነሐሴ 2018 (ኦገስት 2026) • ስሪት 1.2",
+    "privacy.searchPlaceholder": "የግላዊነት ርዕሶችን ፈልግ (ለምሳሌ OCR፣ ባንክ፣ ማጥፋት)...",
+    "privacy.requestDeletion": "መለያ እና መረጃ እንዲሰረዝ ይጠይቁ",
+    "privacy.deletionDesc": "በጉግል ፕሌይ እና ጂዲፒአር ደንቦች መሠረት መረጃዎን በቋሚነት የመሰረዝ መብትዎን ይጠቀሙ።",
   },
 };
