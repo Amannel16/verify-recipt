@@ -54,6 +54,10 @@ function RootLayoutNav() {
         name="profile/edit"
         options={{ presentation: "card", headerShown: false }}
       />
+      <Stack.Screen
+        name="privacy-policy"
+        options={{ presentation: "card", headerShown: false }}
+      />
     </Stack>
   );
 }
