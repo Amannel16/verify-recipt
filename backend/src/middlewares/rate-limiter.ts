@@ -82,3 +82,18 @@ export const generalRateLimiter = createRateLimiter({
   max: 300, // max 300 requests per 15 minutes
   message: "Too many requests to Geba AI API. Please slow down.",
 });
+
+// 4. Translation rate limiter
+export const translateRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // max 30 translation requests per minute per IP
+  message: "Translation rate limit exceeded. Please wait a minute before making more requests.",
+});
+
+// 5. Feedback rate limiter (anti-spam)
+export const feedbackRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // max 10 feedback submissions per minute per IP
+  message: "Feedback submission rate limit exceeded. Please try again in a minute.",
+});
+

@@ -7,6 +7,9 @@ import userRoutes from "./user/route.js";
 import verifyRoutes from "./verify/route.js";
 import v2VerifyRoutes from "./verify/v2-route.js";
 
+import translateRoutes from "./translate/route.js";
+import feedbackRoutes from "./feedback/route.js";
+
 const appRoutes = Router();
 appRoutes.get("/healthz", (_req, res) => {
     res.json({
@@ -28,5 +31,7 @@ appRoutes.use("/verify", verifyRateLimiter, verifyRoutes);
 appRoutes.use("/v2/verify", v2VerifyRoutes);
 appRoutes.use("/subscription", subscriptionRoutes);
 appRoutes.use("/notification", notificationRoutes);
+appRoutes.use("/translate", translateRoutes);
+appRoutes.use("/feedback", feedbackRoutes);
 
-export default appRoutes;
+export default appRoutes;

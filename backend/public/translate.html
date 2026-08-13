@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English ↔ Amharic AI Translation Workbench</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0B0F19;
+      --card-bg: rgba(23, 32, 54, 0.7);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --primary: #6366F1;
+      --primary-hover: #4F46E5;
+      --accent: #10B981;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --input-bg: #111827;
+      --danger: #EF4444;
+      --star-active: #F59E0B;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans Ethiopic', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #1E1B4B 0%, var(--bg) 70%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      max-width: 1000px;
+      width: 100%;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #A5B4FC;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #FFFFFF 0%, #A5B4FC 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      background: rgba(17, 24, 39, 0.6);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .tab-btn {
+      padding: 8px 20px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    .main-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    .translation-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .translation-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      background: var(--input-bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .lang-select {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .detected-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34D399;
+      border-radius: 12px;
+      display: none;
+    }
+
+    textarea {
+      width: 100%;
+      height: 180px;
+      padding: 16px;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 16px;
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+    }
+
+    textarea::placeholder {
+      color: #4B5563;
+    }
+
+    .panel-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .controls-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 16px 0;
+      position: relative;
+    }
+
+    .swap-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    .swap-btn:hover {
+      background: var(--primary);
+      transform: rotate(180deg);
+    }
+
+    .translate-btn {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+      color: white;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+      transition: all 0.2s;
+      margin-left: auto;
+    }
+
+    .translate-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+
+    .translate-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Feedback Widget */
+    .feedback-box {
+      margin-top: 24px;
+      padding: 20px;
+      background: rgba(17, 24, 39, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      display: none;
+    }
+
+    .feedback-box.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .feedback-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stars {
+      display: flex;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .star {
+      font-size: 24px;
+      color: #374151;
+      transition: color 0.15s;
+    }
+
+    .star.active {
+      color: var(--star-active);
+    }
+
+    .helpful-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .thumb-btn {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .thumb-btn.active {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: #10B981;
+      color: #34D399;
+    }
+
+    .tags-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .tag-pill {
+      padding: 4px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .tag-pill.active {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: var(--primary);
+      color: #A5B4FC;
+    }
+
+    .feedback-comment {
+      width: 100%;
+      height: 70px;
+      margin-top: 12px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .submit-feedback-btn {
+      margin-top: 12px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .alert {
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-top: 12px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .alert-success { background: rgba(16, 185, 129, 0.15); border: 1px solid #10B981; color: #34D399; }
+    .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #EF4444; color: #F87171; }
+
+    /* Admin View */
+    .admin-view {
+      display: none;
+    }
+
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .export-btn {
+      background: #059669;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .feedback-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .feedback-table th, .feedback-table td {
+      padding: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: left;
+    }
+
+    .feedback-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="logo-badge">🌐 Geba AI Translation Service</div>
+      <h1>English ↔ Amharic Translator</h1>
+      <p class="subtitle">Bi-directional AI Translation & Feedback Management Engine</p>
+    </header>
+
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('translator')">Translator</button>
+      <button class="tab-btn" onclick="switchTab('admin')">Feedback Logs & Export</button>
+    </div>
+
+    <!-- TAB 1: TRANSLATOR WORKBENCH -->
+    <main id="tabTranslator" class="main-card">
+      <div class="translation-grid">
+        <!-- Input Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <select id="sourceLang" class="lang-select" onchange="onSourceLangChange()">
+              <option value="auto">Auto Detect</option>
+              <option value="en">English</option>
+              <option value="am">Amharic (አማርኛ)</option>
+            </select>
+            <span id="detectedBadge" class="detected-badge">Detected: English</span>
+          </div>
+          <textarea id="inputText" placeholder="Type or paste text here (English or Amharic)..." oninput="onInputTextChange()"></textarea>
+          <div class="panel-footer">
+            <span id="charCounter">0 / 5000</span>
+            <button id="clearBtn" style="background:none; border:none; color:var(--text-muted); cursor:pointer;" onclick="clearInput()">Clear</button>
+          </div>
+        </div>
+
+        <!-- Output Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <select id="targetLang" class="lang-select">
+              <option value="am">Amharic (አማርኛ)</option>
+              <option value="en">English</option>
+            </select>
+            <span id="engineBadge" style="font-size: 11px; color: var(--text-muted);">Engine: GebaAmharicNMT-v1.0</span>
+          </div>
+          <textarea id="translatedText" placeholder="Translation will appear here..." readonly></textarea>
+          <div class="panel-footer">
+            <span id="translationIdSpan">ID: -</span>
+            <button style="background:none; border:none; color:var(--text-muted); cursor:pointer;" onclick="copyTranslation()">📋 Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button class="swap-btn" title="Swap languages" onclick="swapLanguages()">⇄</button>
+        <button id="translateBtn" class="translate-btn" onclick="executeTranslation()">Translate Now</button>
+      </div>
+
+      <!-- FEEDBACK WIDGET -->
+      <div id="feedbackBox" class="feedback-box">
+        <div class="feedback-title">
+          <span>Rate this translation quality:</span>
+          <div class="stars" id="starContainer">
+            <span class="star" onclick="setRating(1)">★</span>
+            <span class="star" onclick="setRating(2)">★</span>
+            <span class="star" onclick="setRating(3)">★</span>
+            <span class="star" onclick="setRating(4)">★</span>
+            <span class="star" onclick="setRating(5)">★</span>
+          </div>
+        </div>
+
+        <div class="helpful-row">
+          <button class="thumb-btn" id="thumbUp" onclick="setHelpful(true)">👍 Helpful</button>
+          <button class="thumb-btn" id="thumbDown" onclick="setHelpful(false)">👎 Unhelpful</button>
+        </div>
+
+        <div class="tags-row" id="flagContainer">
+          <span style="font-size:12px; color:var(--text-muted); align-self:center;">Flag issue:</span>
+          <span class="tag-pill" onclick="toggleFlag('inaccurate')">Inaccurate</span>
+          <span class="tag-pill" onclick="toggleFlag('wrong_tone')">Wrong Tone</span>
+          <span class="tag-pill" onclick="toggleFlag('grammar_issue')">Grammar Issue</span>
+          <span class="tag-pill" onclick="toggleFlag('offensive')">Offensive</span>
+        </div>
+
+        <textarea id="feedbackComment" class="feedback-comment" placeholder="Optional comments on how to improve this translation..."></textarea>
+        
+        <button class="submit-feedback-btn" onclick="submitFeedback()">Submit Feedback</button>
+        <div id="feedbackAlert" class="alert"></div>
+      </div>
+    </main>
+
+    <!-- TAB 2: ADMIN FEEDBACK LOGS & EXPORT -->
+    <main id="tabAdmin" class="main-card admin-view">
+      <div class="admin-header">
+        <h2>Feedback Records & Analytics</h2>
+        <a href="/api/feedback/export" download="translation_feedback.json" class="export-btn">
+          📥 Export JSON Dataset
+        </a>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="feedback-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Rating</th>
+              <th>Helpful</th>
+              <th>Flag Reason</th>
+              <th>Input Text</th>
+              <th>Translation</th>
+              <th>Comment</th>
+            </tr>
+          </thead>
+          <tbody id="feedbackTableBody">
+            <tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Loading feedback logs...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let currentTranslationId = null;
+    let selectedRating = 0;
+    let selectedHelpful = true;
+    let selectedFlagReason = null;
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      if (tab === 'translator') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('tabTranslator').style.display = 'block';
+        document.getElementById('tabAdmin').style.display = 'none';
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('tabTranslator').style.display = 'none';
+        document.getElementById('tabAdmin').style.display = 'block';
+        loadAdminFeedback();
+      }
+    }
+
+    function onInputTextChange() {
+      const text = document.getElementById('inputText').value;
+      document.getElementById('charCounter').innerText = `${text.length} / 5000`;
+      
+      const sourceLangSelect = document.getElementById('sourceLang').value;
+      if (sourceLangSelect === 'auto') {
+        const hasEthiopic = /[\u1200-\u137F]/.test(text);
+        const badge = document.getElementById('detectedBadge');
+        if (text.trim().length > 0) {
+          badge.style.display = 'inline-block';
+          badge.innerText = hasEthiopic ? 'Detected: Amharic' : 'Detected: English';
+          // Auto switch target language suggestion
+          document.getElementById('targetLang').value = hasEthiopic ? 'en' : 'am';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
+
+    function onSourceLangChange() {
+      if (document.getElementById('sourceLang').value !== 'auto') {
+        document.getElementById('detectedBadge').style.display = 'none';
+      } else {
+        onInputTextChange();
+      }
+    }
+
+    function clearInput() {
+      document.getElementById('inputText').value = '';
+      document.getElementById('translatedText').value = '';
+      document.getElementById('feedbackBox').classList.remove('active');
+      onInputTextChange();
+    }
+
+    function swapLanguages() {
+      const src = document.getElementById('sourceLang').value;
+      const tgt = document.getElementById('targetLang').value;
+      if (src !== 'auto') {
+        document.getElementById('sourceLang').value = tgt;
+      }
+      document.getElementById('targetLang').value = src === 'am' ? 'en' : 'am';
+
+      const inputVal = document.getElementById('inputText').value;
+      const outputVal = document.getElementById('translatedText').value;
+      document.getElementById('inputText').value = outputVal;
+      document.getElementById('translatedText').value = inputVal;
+      onInputTextChange();
+    }
+
+    async function executeTranslation() {
+      const inputText = document.getElementById('inputText').value.trim();
+      if (!inputText) return;
+
+      const sourceLanguage = document.getElementById('sourceLang').value;
+      const targetLanguage = document.getElementById('targetLang').value;
+      const translateBtn = document.getElementById('translateBtn');
+
+      translateBtn.disabled = true;
+      translateBtn.innerText = 'Translating...';
+
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            inputText,
+            sourceLanguage: sourceLanguage === 'auto' ? undefined : sourceLanguage,
+            targetLanguage
+          })
+        });
+
+        const json = await res.json();
+        if (res.ok && json.success) {
+          const data = json.data;
+          document.getElementById('translatedText').value = data.translatedText;
+          document.getElementById('engineBadge').innerText = `Engine: ${data.engine}`;
+          document.getElementById('translationIdSpan').innerText = `ID: ${data.id.substring(0, 10)}...`;
+          currentTranslationId = data.id;
+          
+          // Show feedback box
+          resetFeedbackWidget();
+          document.getElementById('feedbackBox').classList.add('active');
+        } else {
+          alert('Translation failed: ' + (json.message || json.error));
+        }
+      } catch (err) {
+        alert('Network error communicating with translation service.');
+      } finally {
+        translateBtn.disabled = false;
+        translateBtn.innerText = 'Translate Now';
+      }
+    }
+
+    function resetFeedbackWidget() {
+      selectedRating = 0;
+      selectedHelpful = true;
+      selectedFlagReason = null;
+      updateStars();
+      document.getElementById('thumbUp').classList.add('active');
+      document.getElementById('thumbDown').classList.remove('active');
+      document.querySelectorAll('.tag-pill').forEach(p => p.classList.remove('active'));
+      document.getElementById('feedbackComment').value = '';
+      document.getElementById('feedbackAlert').style.display = 'none';
+    }
+
+    function setRating(r) {
+      selectedRating = r;
+      updateStars();
+    }
+
+    function updateStars() {
+      const stars = document.querySelectorAll('#starContainer .star');
+      stars.forEach((s, idx) => {
+        if (idx < selectedRating) s.classList.add('active');
+        else s.classList.remove('active');
+      });
+    }
+
+    function setHelpful(val) {
+      selectedHelpful = val;
+      if (val) {
+        document.getElementById('thumbUp').classList.add('active');
+        document.getElementById('thumbDown').classList.remove('active');
+      } else {
+        document.getElementById('thumbDown').classList.add('active');
+        document.getElementById('thumbUp').classList.remove('active');
+      }
+    }
+
+    function toggleFlag(reason) {
+      const pills = document.querySelectorAll('.tag-pill');
+      if (selectedFlagReason === reason) {
+        selectedFlagReason = null;
+        pills.forEach(p => p.classList.remove('active'));
+      } else {
+        selectedFlagReason = reason;
+        pills.forEach(p => {
+          if (p.innerText.toLowerCase().replace(' ', '_') === reason) p.classList.add('active');
+          else p.classList.remove('active');
+        });
+      }
+    }
+
+    async function submitFeedback() {
+      if (!currentTranslationId) return;
+      if (selectedRating === 0) {
+        showAlert('Please select a star rating (1-5).', 'error');
+        return;
+      }
+
+      const comment = document.getElementById('feedbackComment').value;
+
+      try {
+        const res = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            translationId: currentTranslationId,
+            rating: selectedRating,
+            isHelpful: selectedHelpful,
+            comment,
+            flagReason: selectedFlagReason
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showAlert('Thank you! Feedback recorded successfully.', 'success');
+        } else {
+          showAlert(data.message || 'Failed to submit feedback', 'error');
+        }
+      } catch (err) {
+        showAlert('Network error submitting feedback.', 'error');
+      }
+    }
+
+    function showAlert(msg, type) {
+      const alert = document.getElementById('feedbackAlert');
+      alert.innerText = msg;
+      alert.className = `alert alert-${type}`;
+      alert.style.display = 'block';
+    }
+
+    function copyTranslation() {
+      const text = document.getElementById('translatedText').value;
+      if (text) {
+        navigator.clipboard.writeText(text);
+        alert('Translation copied to clipboard!');
+      }
+    }
+
+    async function loadAdminFeedback() {
+      const tbody = document.getElementById('feedbackTableBody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Loading feedback logs...</td></tr>';
+
+      try {
+        const res = await fetch('/api/feedback');
+        const json = await res.json();
+        if (res.ok && json.success && json.data.feedback) {
+          const list = json.data.feedback;
+          if (list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No feedback records submitted yet.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = list.map(f => `
+            <tr>
+              <td>${new Date(f.createdAt).toLocaleString()}</td>
+              <td>${'★'.repeat(f.rating)} (${f.rating})</td>
+              <td>${f.isHelpful ? '✅ Yes' : '❌ No'}</td>
+              <td>${f.flagReason ? `<span class="tag-pill active">${f.flagReason}</span>` : '-'}</td>
+              <td>${escapeHtml(f.translation?.inputText || '-')}</td>
+              <td>${escapeHtml(f.translation?.translatedText || '-')}</td>
+              <td>${escapeHtml(f.comment || '-')}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--danger);">Failed to load feedback logs.</td></tr>';
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+      });
+    }
+  </script>
+</body>
+</html>

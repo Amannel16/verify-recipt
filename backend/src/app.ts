@@ -293,7 +293,13 @@ app.get("/delete-account", (_req, res) => {
   `);
 });
 
+import translateRoutes from "./modules/translate/route.js";
+import feedbackRoutes from "./modules/feedback/route.js";
+
 app.use("/api", appRoutes);
+app.use("/translate", translateRoutes);
+app.use("/feedback", feedbackRoutes);
+
 
 
 
