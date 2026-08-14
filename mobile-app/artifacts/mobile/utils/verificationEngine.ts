@@ -77,16 +77,19 @@ export async function analyzeReceipt(
     additionalFields,
   );
 
-  if (!response.success || !response.data) {
+  if (!response.success || !response.data || typeof response.data !== "object") {
     throw new Error(response.message || "Failed to analyze receipt");
   }
 
-  const data = response.data;
+  const data = response.data as Record<string, any>;
   const status = ((data.status as string) ?? "SUSPICIOUS").toLowerCase() as VerificationStatus;
 
   const normTx = data.normalizedTransaction as any;
   const rawTxId = (data.transactionId as string) || normTx?.transactionId;
   const cleanTxId = (rawTxId && !rawTxId.startsWith("v2-")) ? rawTxId : (normTx?.transactionId || "N/A");
+
+  const rawReasons = Array.isArray(data.reasons) ? data.reasons : [];
+  const rawWarnings = Array.isArray(data.warnings) ? data.warnings : [];
 
   return {
     id: (data.id as string) ?? "",
@@ -100,12 +103,8 @@ export async function analyzeReceipt(
     date: (data.date as string) ?? normTx?.date ?? new Date().toLocaleDateString(),
     time: (data.time as string) ?? normTx?.time ?? new Date().toLocaleTimeString(),
     paymentMethod: (data.paymentMethod as string) ?? normTx?.provider?.toUpperCase() ?? "Unknown",
-    reasons: ((data.reasons as string[]) ?? []).filter(
-      (r) => !/gemini|api failure|api key|vision/i.test(r)
-    ),
-    warnings: ((data.warnings as string[]) ?? []).filter(
-      (w) => !/gemini|api failure|api key|vision/i.test(w)
-    ),
+    reasons: rawReasons.filter((r: any) => typeof r === "string" && !/gemini|api failure|api key|vision/i.test(r)),
+    warnings: rawWarnings.filter((w: any) => typeof w === "string" && !/gemini|api failure|api key|vision/i.test(w)),
     imageUrl: (data.imageUrl as string) ?? undefined,
     receiptUrl: (data.receiptUrl as string) ?? null,
     scrapedData: (data.scrapedData as ScrapedData) ?? null,

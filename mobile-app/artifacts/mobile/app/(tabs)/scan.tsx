@@ -40,6 +40,7 @@ export default function ScanScreen() {
   const { addVerification } = useVerifications();
   const { addLocalNotification } = useNotifications();
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -106,7 +107,9 @@ export default function ScanScreen() {
       );
       return;
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    }
     setPhase("analyzing");
     startAnalysisAnimations();
 
@@ -138,14 +141,18 @@ export default function ScanScreen() {
         notifMsg = `Receipt of ${result.amount || 0} ETB has been rejected.`;
       }
 
-      addLocalNotification(notifTitle, notifMsg, notifType);
+      try {
+        addLocalNotification(notifTitle, notifMsg, notifType);
+      } catch (_) {}
       
       stopAnalysisAnimations();
-      Haptics.notificationAsync(
-        result.status === "approved"
-          ? Haptics.NotificationFeedbackType.Success
-          : Haptics.NotificationFeedbackType.Warning
-      );
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(
+          result.status === "approved"
+            ? Haptics.NotificationFeedbackType.Success
+            : Haptics.NotificationFeedbackType.Warning
+        ).catch(() => {});
+      }
       setResultId(result.id);
       setPhase("done");
     } catch (e) {
@@ -217,30 +224,37 @@ export default function ScanScreen() {
               <TouchableOpacity
                 style={[styles.optionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => {
-                  Alert.prompt(
-                    "Verify SMS Text",
-                    "Paste raw SMS or USSD text from Telebirr, CBE Birr, M-Pesa, or bank:",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Verify Text",
-                        onPress: async (pastedText) => {
-                          if (!pastedText) return;
-                          setPhase("analyzing");
-                          try {
-                            const { verifyV2Evidence } = await import("@/utils/v2-api");
-                            const v2Res = await verifyV2Evidence({ text: pastedText, quickMode: true });
-                            setResultId(v2Res.verificationId);
-                            setPhase("done");
-                          } catch (err: any) {
-                            setPhase("idle");
-                            Alert.alert("SMS Verification Error", err.message);
-                          }
+                  if (Platform.OS === "ios" && typeof Alert.prompt === "function") {
+                    Alert.prompt(
+                      "Verify SMS Text",
+                      "Paste raw SMS or USSD text from Telebirr, CBE Birr, M-Pesa, or bank:",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Verify Text",
+                          onPress: async (pastedText) => {
+                            if (!pastedText) return;
+                            setPhase("analyzing");
+                            try {
+                              const { verifyV2Evidence } = await import("@/utils/v2-api");
+                              const v2Res = await verifyV2Evidence({ text: pastedText, quickMode: true });
+                              setResultId(v2Res.verificationId);
+                              setPhase("done");
+                            } catch (err: any) {
+                              setPhase("idle");
+                              Alert.alert("SMS Verification Error", err.message);
+                            }
+                          },
                         },
-                      },
-                    ],
-                    "plain-text"
-                  );
+                      ],
+                      "plain-text"
+                    );
+                  } else {
+                    Alert.alert(
+                      "SMS Verification",
+                      "Please use an iOS device or the API to input raw transaction text."
+                    );
+                  }
                 }}
                 activeOpacity={0.75}
               >

@@ -215,11 +215,19 @@ function amountMatch(
 export function crossValidate(
   aiData: ReceiptAnalysisResult,
   scrapedData: ScrapedReceiptData,
+  isMessageReceipt: boolean = false,
 ): CrossValidationResult {
-  logger.info("🔄 Running cross-validation: AI data vs scraped data");
+  logger.info(`🔄 Running cross-validation: AI data vs scraped data (isMessageReceipt: ${isMessageReceipt})`);
 
   const fieldMatches: FieldMatch[] = [];
   const discrepancies: string[] = [];
+
+  // Detect message receipt from raw text if not explicitly passed
+  const isMsg =
+    isMessageReceipt ||
+    /sms|ussd|paid|received|debited|credited|telebirr|cbe birr|m-pesa/i.test(
+      aiData.rawExtractedText || ""
+    );
 
   // 1. Sender Name comparison
   const hasSenderScraped = Boolean(scrapedData.senderName);
@@ -245,7 +253,7 @@ export function crossValidate(
     );
   }
 
-  // 2. Receiver Name comparison
+  // 2. Receiver Name comparison (Message Receiver vs URL Receiver)
   const hasReceiverScraped = Boolean(scrapedData.receiverName);
   const receiverSimilarity = hasReceiverScraped ? nameSimilarity(aiData.receiverName, scrapedData.receiverName) : 100;
   const receiverMatches = !hasReceiverScraped || receiverSimilarity >= 70;
@@ -258,18 +266,22 @@ export function crossValidate(
     note: !hasReceiverScraped
       ? "Not displayed on public verification portal"
       : receiverSimilarity >= 90
-        ? "Names match closely"
+        ? "Receiver names match closely"
         : receiverSimilarity >= 70
-          ? "Names partially match"
-          : "Names differ significantly",
+          ? "Receiver names match"
+          : isMsg
+            ? "CRITICAL: Message receiver name does NOT match official URL receiver name"
+            : "Receiver names differ significantly",
   });
+
   if (hasReceiverScraped && !receiverMatches && aiData.receiverName && scrapedData.receiverName) {
+    const msgPrefix = isMsg ? "CRITICAL (Message Receipt): " : "";
     discrepancies.push(
-      `Receiver mismatch: AI extracted "${aiData.receiverName}" but URL shows "${scrapedData.receiverName}"`,
+      `${msgPrefix}Receiver mismatch: Message receiver "${aiData.receiverName}" does NOT match official URL receiver "${scrapedData.receiverName}"`,
     );
   }
 
-  // 3. Amount comparison
+  // 3. Amount comparison (Message Amount vs URL Amount)
   const hasAmtScraped = scrapedData.amount != null;
   const amtResult = hasAmtScraped ? amountMatch(aiData.amount, scrapedData.amount) : { matches: true, confidence: 100 };
   fieldMatches.push({
@@ -284,11 +296,15 @@ export function crossValidate(
         ? amtResult.confidence === 100
           ? "Exact amount match"
           : "Amount matches within rounding tolerance"
-        : `Amount differs: ${aiData.amount} vs ${scrapedData.amount} ETB`,
+        : isMsg
+          ? `CRITICAL: Message amount (${aiData.amount} ETB) does NOT match official URL amount (${scrapedData.amount} ETB)`
+          : `Amount differs: ${aiData.amount} vs ${scrapedData.amount} ETB`,
   });
+
   if (hasAmtScraped && !amtResult.matches && aiData.amount != null && scrapedData.amount != null) {
+    const msgPrefix = isMsg ? "CRITICAL (Message Receipt): " : "";
     discrepancies.push(
-      `Amount mismatch: AI extracted ${aiData.amount} ETB but URL shows ${scrapedData.amount} ETB`,
+      `${msgPrefix}Amount mismatch: Message amount ${aiData.amount} ETB does NOT match official URL amount ${scrapedData.amount} ETB`,
     );
   }
 
@@ -356,19 +372,25 @@ export function crossValidate(
     totalWeight += weights.txnId;
   }
 
-  const crossValidationScore =
+  let crossValidationScore =
     totalWeight > 0 ? Math.round(weightedScore / totalWeight) : 0;
+
+  // If this is a message receipt and either Receiver Name or Amount fails to match the URL record, force MISMATCH
+  const messageCheckFailed = isMsg && scrapedData.isValid && (!receiverMatches || !amtResult.matches);
+  if (messageCheckFailed) {
+    crossValidationScore = Math.min(crossValidationScore, 35);
+  }
 
   // Determine overall match status
   let overallMatch: CrossValidationResult["overallMatch"];
   if (totalWeight === 0) {
     overallMatch = "UNABLE_TO_VERIFY";
+  } else if (messageCheckFailed || crossValidationScore < 50) {
+    overallMatch = "MISMATCH";
   } else if (crossValidationScore >= 80) {
     overallMatch = "MATCH";
-  } else if (crossValidationScore >= 50) {
-    overallMatch = "PARTIAL_MATCH";
   } else {
-    overallMatch = "MISMATCH";
+    overallMatch = "PARTIAL_MATCH";
   }
 
   // Summary text
@@ -379,12 +401,14 @@ export function crossValidate(
 
   const summary =
     overallMatch === "MATCH"
-      ? `✅ Cross-validation passed: ${matchedFields}/${comparableFields} fields match between AI extraction and URL verification.`
-      : overallMatch === "PARTIAL_MATCH"
-        ? `⚠️ Partial match: ${matchedFields}/${comparableFields} fields match. Review the discrepancies below.`
-        : overallMatch === "MISMATCH"
-          ? `❌ Cross-validation failed: Only ${matchedFields}/${comparableFields} fields match. This receipt may be tampered with.`
-          : `ℹ️ Unable to cross-validate: Insufficient data from URL scraping for comparison.`;
+      ? `✅ Cross-validation passed: ${matchedFields}/${comparableFields} fields match between message receipt and URL verification.`
+      : messageCheckFailed
+        ? `❌ Message receipt cross-validation FAILED: ${!receiverMatches ? 'Receiver name' : ''} ${!receiverMatches && !amtResult.matches ? 'and' : ''} ${!amtResult.matches ? 'Amount' : ''} from message does NOT match official URL record.`
+        : overallMatch === "PARTIAL_MATCH"
+          ? `⚠️ Partial match: ${matchedFields}/${comparableFields} fields match. Review the discrepancies below.`
+          : overallMatch === "MISMATCH"
+            ? `❌ Cross-validation failed: Only ${matchedFields}/${comparableFields} fields match. This receipt may be tampered with.`
+            : `ℹ️ Unable to cross-validate: Insufficient data from URL scraping for comparison.`;
 
   logger.info(
     `🔄 Cross-validation result: ${overallMatch} (score: ${crossValidationScore}, ${matchedFields}/${comparableFields} fields match)`,
