@@ -97,6 +97,19 @@ export function detectBankFromText(text: string): string {
     return "cbebirr";
   }
 
+  // 1.5. Awash Bank special signatures, URL, or SMS
+  if (
+    lowerText.includes("awash bank") ||
+    lowerText.includes("awashbank") ||
+    lowerText.includes("awash birr") ||
+    lowerText.includes("awashpay") ||
+    lowerText.includes("awashpay.awashbank.com") ||
+    lowerText.includes("ib.awashbank.com")
+  ) {
+    logger.info("🏦 Detected bank provider: Awash Bank (via signature layout)");
+    return "awash";
+  }
+
   // 2. Commercial Bank of Ethiopia (CBE) special signatures, URL, or FT reference numbers
   if (
     lowerText.includes("commercial bank of ethiopia") || 
@@ -148,10 +161,25 @@ export function detectBankFromText(text: string): string {
     logger.info("🏦 Detected bank provider: Dashen Bank (via signature layout)");
     return "dashen";
   }
+
+  // 5. Awash Bank special signatures, URL, or SMS
+  if (
+    lowerText.includes("awash bank") ||
+    lowerText.includes("awashbank") ||
+    lowerText.includes("awash birr") ||
+    lowerText.includes("awashpay") ||
+    lowerText.includes("awashpay.awashbank.com") ||
+    lowerText.includes("ib.awashbank.com") ||
+    lowerText.includes("transferred to other bank") ||
+    (lowerText.includes("transferred to") && lowerText.includes("commercial bank of ethiopia"))
+  ) {
+    logger.info("🏦 Detected bank provider: Awash Bank (via signature layout)");
+    return "awash";
+  }
   
-  // 5. General templates
+  // 6. General templates
   for (const template of BANK_TEMPLATES) {
-    if (template.provider === "cbe" || template.provider === "telebirr" || template.provider === "dashen" || template.provider === "m-pesa") continue;
+    if (template.provider === "cbe" || template.provider === "telebirr" || template.provider === "dashen" || template.provider === "m-pesa" || template.provider === "awash") continue;
 
     for (const keyword of template.keywords) {
       if (lowerText.includes(keyword)) {
@@ -529,13 +557,89 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     const receiverMatch = text.match(/(?:receiver name|receiver's name|to|payee)[:\s]+([A-Za-z\s.-]+)/i);
     if (receiverMatch?.[1]) fields.receiverName = cleanName(receiverMatch[1]);
 
+  } else if (provider === "awash") {
+    // 6. Awash Bank (App Confirmation View & SMS Message View)
+    
+    // --- Transaction ID / Receipt Token ---
+    const awashTxMatch = text.match(/(?:transaction id|txid|txn id|ref no|transaction ref)[:\s]*([A-Z0-9_-]{8,25})/i) ||
+      text.match(/awashpay\.awashbank\.com:?\d*\/(?:verify\/)?(-?[A-Z0-9]{8,15}-[A-Z0-9]{6,10})/i) ||
+      text.match(/\b(\d{14,16})\b/) ||
+      text.match(/\b(AWS[A-Z0-9]{8,18})\b/i);
+
+    if (awashTxMatch) {
+      fields.transactionId = awashTxMatch[1].trim();
+      fields.transferReference = fields.transactionId;
+    }
+
+    // --- Amount ---
+    const smsAmtMatch = text.match(/transferred(?:\s+to\s+other\s+bank)?\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/ETB\s*([\d,]+(?:\.\d{1,2})?)\s+To\s+[0-9*]{8,18}/i);
+    const appAmtMatch = text.match(/(?:amount)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/([\d,]+(?:\.\d{1,2})?)\s*(?:etb|birr)/i);
+
+    if (smsAmtMatch) {
+      fields.amount = parseFloat(smsAmtMatch[1].replace(/,/g, ""));
+    } else if (appAmtMatch) {
+      fields.amount = parseFloat(appAmtMatch[1].replace(/,/g, ""));
+    }
+
+    // --- Charge, VAT, EDRRF ---
+    const chargeMatch = text.match(/(?:charge|with charge of)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const vatMatch = text.match(/vat[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const edrrfMatch = text.match(/edrrf[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+
+    let feeSum = 0;
+    if (chargeMatch) feeSum += parseFloat(chargeMatch[1].replace(/,/g, ""));
+    if (vatMatch) feeSum += parseFloat(vatMatch[1].replace(/,/g, ""));
+    if (edrrfMatch) feeSum += parseFloat(edrrfMatch[1].replace(/,/g, ""));
+    if (feeSum > 0) fields.fees = feeSum;
+
+    // --- Sender Name & Account ---
+    const appSenderMatch = text.match(/(?:sender name|payer name|source name|from)[:\s]+([^\r\n]+)/i);
+    const smsSenderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)\s*,/i);
+
+    if (appSenderMatch?.[1]) {
+      fields.senderName = cleanName(appSenderMatch[1]);
+    } else if (smsSenderMatch?.[1]) {
+      const sName = cleanName(smsSenderMatch[1]);
+      if (!/customer/i.test(sName)) {
+        fields.senderName = sName;
+      }
+    }
+
+    const appSenderAcc = text.match(/(?:sender account|sender acc|source account)[:\s]+([0-9*]{8,18})/i);
+    if (appSenderAcc?.[1]) {
+      fields.senderAccount = appSenderAcc[1];
+    }
+
+    // --- Receiver (Beneficiary) Name & Account ---
+    const smsReceiverWithAccMatch = text.match(/To\s+([0-9*]{8,18})\s*\(([^)]+)\)/i);
+    const appReceiverMatch = text.match(/(?:beneficiary name|beneficiary|receiver name|payee name|to)[:\s]+([A-Za-z\s.-]+)/i);
+    const appReceiverAcc = text.match(/(?:beneficiary account|beneficiary acc|receiver account)[:\s]+([0-9*]{8,18})/i);
+
+    if (smsReceiverWithAccMatch) {
+      fields.receiverAccount = smsReceiverWithAccMatch[1];
+      fields.receiverName = cleanName(smsReceiverWithAccMatch[2]);
+    } else {
+      if (appReceiverMatch?.[1]) fields.receiverName = cleanName(appReceiverMatch[1]);
+      if (appReceiverAcc?.[1]) fields.receiverAccount = appReceiverAcc[1];
+    }
+
+    // --- Date & Time ---
+    const appTimeMatch = text.match(/(?:transaction time|date & time|time)[:\s]*(\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)?)/i) ||
+      text.match(/(\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)/i);
+    if (appTimeMatch) {
+      const parts = appTimeMatch[1].trim().split(/\s+/);
+      if (parts[0]) fields.date = parts[0];
+      if (parts[1]) fields.time = parts.slice(1).join(" ");
+    }
   } else {
-    // 5. Generic / Fallback Parser
-    const txMatch = text.match(/\b(FT\d{10,20})\b/i)
+    // 7. Generic / Fallback Parser
+    const genericTxMatch = text.match(/\b(FT\d{10,20})\b/i)
       || text.match(/\b(TX[A-Z0-9]{8,15})\b/i)
       || text.match(/\b(IPSS[A-Z0-9]{8,15})\b/i)
       || text.match(/(?:txn ref|reference no|transaction id|ref no|transaction ref)[:\s]*([A-Z0-9_-]{8,24})/i);
-    if (txMatch) fields.transactionId = (txMatch[1] || txMatch[0]).toUpperCase();
+    if (genericTxMatch) fields.transactionId = (genericTxMatch[1] || genericTxMatch[0]).toUpperCase();
 
     const amtMatch = text.match(/(?:transferred amount|transaction amount|total paid|amount|total amount|sum|total|net amount|paid)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i)
       || text.match(/(?:etb|birr)\s*([\d,]+(?:\.\d{1,2})?)/i);

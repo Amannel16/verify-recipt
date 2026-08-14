@@ -65,6 +65,7 @@ First, identify the receipt format:
 - **Bank of Abyssinia (BoA)**: Look for "Bank of Abyssinia", "BoA", or "Apollo" branding.
 - **Dashen Bank**: Look for "Dashen Bank", "Dashen", or "Dashen Bank Super App" SMS ("Dear [Payer], you have successfully transferred ETB [Amount] from your account [Account] to [Payee] account [PayeeAccount]... with transaction reference [Ref]... Download receipt: https://receipts.dashenbanksc.com/receipt/[Ref]").
 - **M-Pesa**: Look for "M-Pesa", "Safaricom" branding, or SMS from "MPESA" ("Dear [Payee], you have received [Amount] Birr from [Payer]... Transaction number is [ID]... Get your receipt here: https://m-pesabusiness.safaricom.et/receipt/[ID]").
+- **Awash Bank**: Look for "Awash Bank", "AwashBank", or "Awash Pay" branding, blue top banner "Transaction Successful", fields like "Transaction Time", "Transaction Type", "Amount", "Charge", "VAT", "EDRRF", "Sender Name", "Sender Account", "Beneficiary name", "Beneficiary Account", "Beneficiary Bank", "Reason", "Transaction ID" (15 digits numeric e.g. 260808123683972), or SMS messages ("Dear Customer , You have transferred... Receipt Link: https://awashpay.awashbank.com:8225/...").
 
 Analyze the image for signs of image tampering or fraud:
 - Check if the transaction ID/references, amount, fees, total, sender/receiver names, or accounts font style, weight, or size matches the surrounding text.

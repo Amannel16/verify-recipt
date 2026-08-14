@@ -1,5 +1,6 @@
 import { NormalizedTransaction } from "./types.js";
 import { providerRegistry } from "./provider-registry.js";
+import { parseReceiptWithBankRules } from "./bank-rules.js";
 import { logger } from "../../utils/logger/logger.js";
 
 export function parseSmsText(smsText: string): NormalizedTransaction | null {
@@ -17,6 +18,33 @@ export function parseSmsText(smsText: string): NormalizedTransaction | null {
       matchedProvider = provider.id;
       break;
     }
+  }
+
+  // Awash Bank SMS Special Handling
+  if (matchedProvider === "awash" || /awashpay\.awashbank\.com|transferred to other bank/i.test(text)) {
+    matchedProvider = "awash";
+    const urlMatch = text.match(/(https?:\/\/awashpay\.awashbank\.com:?\d*\/[^\s]+)/i);
+    const receiptUrl = urlMatch ? urlMatch[1].replace(/[.,;:!?)]+$/, "") : undefined;
+
+    const tokenMatch = receiptUrl ? receiptUrl.split("/").pop() : undefined;
+
+    const parsedRules = parseReceiptWithBankRules(text, "awash");
+
+    const txId = parsedRules.transactionId || tokenMatch;
+
+    return {
+      provider: "awash",
+      sourceType: "SMS_TEXT",
+      transactionId: txId,
+      amount: parsedRules.amount ?? undefined,
+      currency: "ETB",
+      sender: parsedRules.senderName ? { name: parsedRules.senderName, account: parsedRules.senderAccount ?? undefined } : undefined,
+      receiver: parsedRules.receiverName ? { name: parsedRules.receiverName, account: parsedRules.receiverAccount ?? undefined } : undefined,
+      date: parsedRules.date ?? undefined,
+      time: parsedRules.time ?? undefined,
+      receiptUrl: receiptUrl,
+      extractionConfidence: 0.95,
+    };
   }
 
   // Common extraction regexes
