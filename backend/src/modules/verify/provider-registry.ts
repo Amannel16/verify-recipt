@@ -85,12 +85,16 @@ export class ProviderRegistry {
         "apps.cbe.com.et",
         "mreciept.cbe.com.et",
         "mreceipt.cbe.com.et",
+        "mbreciept.cbe.com.et",
+        "mbreceipt.cbe.com.et",
         "combanketh.et",
         "www.cbe.com.et",
       ],
       verificationDomains: [
         "mreciept.cbe.com.et",
         "mreceipt.cbe.com.et",
+        "mbreciept.cbe.com.et",
+        "mbreceipt.cbe.com.et",
         "apps.cbe.com.et",
       ],
       identifierTypes: ["TRANSACTION_ID", "REFERENCE"],
@@ -103,6 +107,10 @@ export class ProviderRegistry {
         /debited from your account/i,
         /cbe birr/i,
         /cbe account/i,
+        /thanks for banking with cbe/i,
+        /m[b]?reciept\.cbe\.com\.et/i,
+        /m[b]?receipt\.cbe\.com\.et/i,
+        /successfully transferred.*from account.*to account/i,
       ],
       ussdPatterns: [/\*847\#/i, /cbe birr transaction/i],
       verificationMethods: ["QR", "RECEIPT_URL", "TRANSACTION_ID", "OFFICIAL_PORTAL", "SMS"],
@@ -114,7 +122,7 @@ export class ProviderRegistry {
       supportsOfficialVerification: true,
       buildVerificationUrl: (tx) => {
         if (!tx.transactionId) return null;
-        return `https://mreciept.cbe.com.et/receipt/${tx.transactionId}`;
+        return `https://mbreciept.cbe.com.et/receipt/${tx.transactionId}`;
       },
     });
 
