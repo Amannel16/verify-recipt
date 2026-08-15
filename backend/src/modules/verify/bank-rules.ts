@@ -283,72 +283,116 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
        fields.date = dateMatch[1];
     }
   } else if (provider === "cbe") {
-    // 1. CBE (Commercial Bank of Ethiopia)
+    // 1. Commercial Bank of Ethiopia (CBE) - Dual Receipt Type Support (SMS & App Screenshot)
+
+    // Transaction ID & Receipt Token
     const txMatch = text.match(/\b(FT[A-Z0-9]{8,22})\b/i) ||
-      text.match(/mreciept\.cbe\.com\.et\/([A-Za-z0-9_-]+)/i) ||
-      text.match(/mreceipt\.cbe\.com\.et\/([A-Za-z0-9_-]+)/i);
-    if (txMatch) fields.transactionId = txMatch[1].toUpperCase();
+      text.match(/(?:with\s+Transaction\s+ID|Transaction\s+ID|Txn\s+ID|Ref)[:\s]*([A-Z0-9]{8,22})/i) ||
+      text.match(/m[b]?reciept\.cbe\.com\.et\/(v2-[A-Za-z0-9_-]+)/i) ||
+      text.match(/m[b]?receipt\.cbe\.com\.et\/(v2-[A-Za-z0-9_-]+)/i);
 
-    // Base Amount parsing
-    const debitedMatch = text.match(/(?:etb|birr)\s*([\d,]+(?:\.\d{1,2})?)\s+has\s+been\s+debited/i);
-    const smsDebitAmtMatch = text.match(/(?:debit\s+transaction\s+of|debited)\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-    const smsMatch = text.match(/transferred\s+to\s+other\s+bank\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-    const amtMatch = text.match(/(?:transferred amount|amount|total paid|paid)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i)
-      || text.match(/(?:etb|birr)\s*([\d,]+(?:\.\d{1,2})?)/i);
-
-    if (debitedMatch) {
-      fields.amount = parseFloat(debitedMatch[1].replace(/,/g, ""));
-    } else if (smsDebitAmtMatch) {
-      fields.amount = parseFloat(smsDebitAmtMatch[1].replace(/,/g, ""));
-    } else if (smsMatch) {
-      fields.amount = parseFloat(smsMatch[1].replace(/,/g, ""));
-    } else if (amtMatch) {
-      fields.amount = parseFloat(amtMatch[1].replace(/,/g, ""));
+    if (txMatch) {
+      const rawTx = txMatch[1].trim();
+      fields.transactionId = rawTx.startsWith("v2-") ? rawTx : rawTx.toUpperCase();
+      if (!rawTx.startsWith("v2-")) {
+        fields.transferReference = fields.transactionId;
+      }
     }
 
-    // Total Amount parsing
+    // --- STRUCTURAL PATTERN MATCH 1: CBE Mobile App Transaction Summary Screen (Image 2) ---
+    // "You have sucessfully transferred 300 ETB from your account 1********8096 Amanuel Andemo Angello for KALEAB MEBRATU HAILESELASSIE with Dashen Bank account number 5********6011 ."
+    const appSummaryMatch = text.match(
+      /transferred\s*([\d,]+(?:\.\d{1,2})?)\s*(?:ETB|Birr|Br\.?)?\s+from\s+(?:your\s+)?account\s+([0-9*]{8,18})\s+(.+?)\s+for\s+(.+?)\s+with\s+(.+?)\s+account\s+(?:number\s+)?([0-9*]{8,18})/i
+    );
+
+    if (appSummaryMatch) {
+      fields.amount = parseFloat(appSummaryMatch[1].replace(/,/g, ""));
+      fields.senderAccount = appSummaryMatch[2];
+      fields.senderName = cleanName(appSummaryMatch[3]);
+      fields.receiverName = cleanName(appSummaryMatch[4]);
+      if (appSummaryMatch[6]) {
+        fields.receiverAccount = appSummaryMatch[6];
+      }
+    }
+
+    // --- STRUCTURAL PATTERN MATCH 2: CBE Mobile Banking SMS Message (Image 1) ---
+    // "Dear Amanuel Andemo Angello You have successfully transferred ETB1000.00 from account 1********8096 to account 1********2413 (Eyerusalem Tadesse Sharew)."
+    const smsSummaryMatch = text.match(
+      /Dear\s+([A-Za-z\s.-]+?)\s+You\s+have\s+successfully\s+transferred\s*(?:ETB|Br\.?)?\s*([\d,]+(?:\.\d{1,2})?)\s+from\s+account\s+([0-9*]{8,18})\s+to\s+account\s+([0-9*]{8,18})\s*\(([^)]+)\)/i
+    );
+
+    if (smsSummaryMatch) {
+      if (!fields.senderName) fields.senderName = cleanName(smsSummaryMatch[1]);
+      if (!fields.amount) fields.amount = parseFloat(smsSummaryMatch[2].replace(/,/g, ""));
+      if (!fields.senderAccount) fields.senderAccount = smsSummaryMatch[3];
+      if (!fields.receiverAccount) fields.receiverAccount = smsSummaryMatch[4];
+      if (!fields.receiverName) fields.receiverName = cleanName(smsSummaryMatch[5]);
+    }
+
+    // --- FALLBACK REGEX MATCHERS ---
+
+    // Amount Fallbacks
+    if (!fields.amount) {
+      const debitedMatch = text.match(/(?:etb|birr)\s*([\d,]+(?:\.\d{1,2})?)\s+has\s+been\s+debited/i);
+      const smsDebitAmtMatch = text.match(/(?:debit\s+transaction\s+of|debited)\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+      const transferredMatch = text.match(/transferred\s*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+      const amtMatch = text.match(/(?:transferred amount|amount|total paid|paid)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+        text.match(/(?:etb|birr)\s*([\d,]+(?:\.\d{1,2})?)/i);
+
+      if (debitedMatch) {
+        fields.amount = parseFloat(debitedMatch[1].replace(/,/g, ""));
+      } else if (smsDebitAmtMatch) {
+        fields.amount = parseFloat(smsDebitAmtMatch[1].replace(/,/g, ""));
+      } else if (transferredMatch) {
+        fields.amount = parseFloat(transferredMatch[1].replace(/,/g, ""));
+      } else if (amtMatch) {
+        fields.amount = parseFloat(amtMatch[1].replace(/,/g, ""));
+      }
+    }
+
+    // Total Amount Debited
     const totalMatch = text.match(/(?:total amount debited|total amount|total debited)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/with\s+total\s+of\s*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
       text.match(/total\s+of\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+
     if (totalMatch) fields.totalAmount = parseFloat(totalMatch[1].replace(/,/g, ""));
 
-    // Service Charge (Fees) parsing
-    const feeMatch = text.match(/(?:service charge|fee|charge)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
-      text.match(/service\s+charge\s+of\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    // Fees: Service Charge + VAT (15%) + Disaster Recovery (5%)
     let feeSum = 0;
+    const feeMatch = text.match(/service\s*charge\s*(?:of)?[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
     if (feeMatch) feeSum += parseFloat(feeMatch[1].replace(/,/g, ""));
-    
-    const vatMatch = text.match(/vat\s*(?:\(15%\))?\s*of\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+
+    const vatMatch = text.match(/vat\s*(?:\(15%\))?\s*(?:of)?[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
     if (vatMatch) feeSum += parseFloat(vatMatch[1].replace(/,/g, ""));
 
-    const drrfMatch = text.match(/disaster\s+recovery\s*(?:\(5%\))?\s*of\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const drrfMatch = text.match(/(?:disaster\s+recovery|drrf)\s*(?:\(5%\))?\s*(?:of)?[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
     if (drrfMatch) feeSum += parseFloat(drrfMatch[1].replace(/,/g, ""));
 
     if (feeSum > 0) fields.fees = feeSum;
 
-    // Names & Account parsing
-    const sentenceMatch = text.match(/debited\s+from\s+([A-Za-z\s.-]+?)(?:\s+etb-\d+|\s+account)?\s+for\s+([A-Za-z\s.-]+?)(?:\s+etb-\d+|\s+account)?\s+(?:on|with)/i);
-    const smsSenderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)\s+A\s+debit\s+transaction/i) ||
-      text.match(/Dear\s+([A-Za-z\s.-]+?)\s+ETB/i);
-    const smsReceiverMatch = text.match(/to\s+\d{8,16}\s*\(([^)]+)\)/i);
-    const senderMatch = text.match(/(?:from|sender|payer|debited from|source name)[:\s]+([A-Za-z\s.-]+)/i);
-    const receiverMatch = text.match(/(?:to|receiver|payee|beneficiary|credited party)[:\s]+([A-Za-z\s.-]+)/i);
-
-    if (sentenceMatch) {
-      fields.senderName = cleanName(sentenceMatch[1]);
-      fields.receiverName = cleanName(sentenceMatch[2]);
-    } else {
+    // Names & Accounts Fallbacks
+    if (!fields.senderName) {
+      const smsSenderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)\s+(?:You\s+have|A\s+debit|ETB)/i) ||
+        text.match(/(?:from|sender|payer|debited from|source name)[:\s]+([A-Za-z\s.-]+)/i);
       if (smsSenderMatch?.[1]) fields.senderName = cleanName(smsSenderMatch[1]);
-      else if (senderMatch?.[1]) fields.senderName = cleanName(senderMatch[1]);
-
-      if (receiverMatch?.[1]) fields.receiverName = cleanName(receiverMatch[1]);
     }
 
-    if (smsReceiverMatch?.[1] && !fields.receiverName) {
-      fields.receiverName = cleanName(smsReceiverMatch[1]);
+    if (!fields.receiverName) {
+      const smsReceiverMatch = text.match(/to\s+(?:account\s+)?([0-9*]{8,18})\s*\(([^)]+)\)/i) ||
+        text.match(/for\s+([A-Za-z\s.-]+?)\s+with/i) ||
+        text.match(/(?:to|receiver|payee|beneficiary|credited party)[:\s]+([A-Za-z\s.-]+)/i);
+      if (smsReceiverMatch?.[2]) {
+        fields.receiverName = cleanName(smsReceiverMatch[2]);
+        if (!fields.receiverAccount) fields.receiverAccount = smsReceiverMatch[1];
+      } else if (smsReceiverMatch?.[1]) {
+        fields.receiverName = cleanName(smsReceiverMatch[1]);
+      }
     }
 
-    const cbeAccMatch = text.match(/account\s+([0-9*]{8,18})/i);
-    if (cbeAccMatch) fields.senderAccount = cbeAccMatch[1];
+    if (!fields.senderAccount) {
+      const cbeAccMatch = text.match(/(?:from\s+your\s+account|from\s+account|account)\s+([0-9*]{8,18})/i);
+      if (cbeAccMatch) fields.senderAccount = cbeAccMatch[1];
+    }
 
   } else if (provider === "telebirr") {
     // 2. telebirr
