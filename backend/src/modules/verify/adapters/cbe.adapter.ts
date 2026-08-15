@@ -8,10 +8,10 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
     const text = (input.text || "").toLowerCase();
     const url = (input.url || "").toLowerCase();
 
-    if (url.includes("cbe.com.et") || url.includes("combanketh.et")) {
+    if (url.includes("cbe.com.et") || url.includes("combanketh.et") || url.includes("mbreciept") || url.includes("mreciept")) {
       return { isSupported: true, confidence: 0.95 };
     }
-    if (text.includes("commercial bank of ethiopia") || text.includes("cbe birr")) {
+    if (text.includes("commercial bank of ethiopia") || text.includes("cbe birr") || text.includes("banking with cbe") || text.includes("mbreciept")) {
       return { isSupported: true, confidence: 0.85 };
     }
     return { isSupported: false, confidence: 0 };
@@ -29,8 +29,8 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
     const targetId = transaction.receiptId || transaction.transactionId;
     if (!targetId) return null;
     if (targetId.startsWith("http://") || targetId.startsWith("https://")) return targetId;
-    if (targetId.startsWith("v2-")) return `https://mreciept.cbe.com.et/${targetId}`;
-    return `https://mreciept.cbe.com.et/receipt/${targetId}`;
+    if (targetId.startsWith("v2-")) return `https://mbreciept.cbe.com.et/${targetId}`;
+    return `https://mbreciept.cbe.com.et/receipt/${targetId}`;
   }
 
   async verifyOfficialTransaction(transaction: NormalizedTransaction): Promise<{
@@ -68,15 +68,28 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
 
   async parseSMS(text: string): Promise<NormalizedTransaction | null> {
     if (!text || !/cbe/i.test(text)) return null;
-    const amountMatch = text.match(/(?:ETB|Br\.?)\s*([0-9,]+\.?[0-9]*)/i);
-    const txMatch = text.match(/(?:tx|id|ref):?\s*([A-Z0-9]+)/i);
+
+    const urlMatch = text.match(/(https?:\/\/m[b]?reciept\.cbe\.com\.et\/[^\s"'<>]+)/i);
+    const receiptUrl = urlMatch ? urlMatch[1].replace(/[.,;:!?)]+$/, "") : undefined;
+    const tokenMatch = receiptUrl ? (receiptUrl.includes("/v2-") ? "v2-" + receiptUrl.split("/v2-").pop() : receiptUrl.split("/").pop()) : undefined;
+
+    const txMatch = text.match(/\b(FT[A-Z0-9]{8,22})\b/i) || (tokenMatch ? [null, tokenMatch] : null);
+    const amtMatch = text.match(/(?:ETB|Br\.?)\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/transferred\s*(?:ETB|Br\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+
+    const senderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)\s+You\s+have/i);
+    const receiverMatch = text.match(/to\s+(?:account\s+)?([0-9*]{8,18})\s*\(([^)]+)\)/i);
 
     return {
       provider: "cbe",
       sourceType: "SMS_TEXT",
-      amount: amountMatch ? parseFloat(amountMatch[1].replace(/,/g, "")) : undefined,
       transactionId: txMatch ? txMatch[1] : undefined,
-      extractionConfidence: 0.85,
+      receiptId: tokenMatch,
+      receiptUrl,
+      amount: amtMatch ? parseFloat(amtMatch[1].replace(/,/g, "")) : undefined,
+      sender: senderMatch ? { name: senderMatch[1].trim() } : undefined,
+      receiver: receiverMatch ? { name: receiverMatch[2].trim(), account: receiverMatch[1] } : undefined,
+      extractionConfidence: 0.95,
     };
   }
 }
