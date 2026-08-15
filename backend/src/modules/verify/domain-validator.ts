@@ -15,6 +15,8 @@ const TRUSTED_DOMAINS: Record<string, string[]> = {
     "apps.cbe.com.et",
     "mreciept.cbe.com.et",
     "mreceipt.cbe.com.et",
+    "mbreciept.cbe.com.et",
+    "mbreceipt.cbe.com.et",
     "cbebirr.cbe.com.et",
     "combanketh.et",
     "www.cbe.com.et",
