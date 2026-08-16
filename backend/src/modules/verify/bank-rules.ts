@@ -232,21 +232,28 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
   // --- BANK SPECIFIC REGEX PARSING TIER ---
   if (provider === "cbebirr") {
     // 0. CBEBirr
-    const txMatch = text.match(/\b(DH[A-Z0-9]{8,15})\b/i) || text.match(/\b(FT[A-Z0-9]{8,22})\b/i);
+    const txMatch = text.match(/\b(DH[A-Z0-9]{8,15})\b/i) || text.match(/\b(FT[A-Z0-9]{8,22})\b/i) ||
+      text.match(/(?:txn id|transaction id|ref no|transaction ref|receipt number|order id)[:\s]*([a-z0-9]+)/i);
     if (txMatch) fields.transactionId = txMatch[1].toUpperCase();
 
     const amtMatch = text.match(/(?:etb|birr)\s*([\d,]+(?:\.\d{1,2})?)\s+debited/i) ||
       text.match(/transferred\s+([\d,]+(?:\.\d{1,2})?)\s*(?:br|etb|birr)/i) ||
-      text.match(/made\s+([\d,]+(?:\.\d{1,2})?)\s*(?:br|etb|birr)\.?\s*transfer/i);
+      text.match(/made\s+([\d,]+(?:\.\d{1,2})?)\s*(?:br|etb|birr)\.?\s*transfer/i) ||
+      text.match(/(?:paid amount|total paid amount|amount paid)[\s:;]*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/(?:amount|transferred amount|total)[^\d\n\r]*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/(?:amount|transferred amount|total)[\s:;]*(?:etb|birr)?[\s:;]*([\d,]+\.\d{2})/i) ||
+      text.match(/([\d,]+(?:\.\d{1,2})?)\s*(?:etb|birr)/i);
     if (amtMatch) fields.amount = parseFloat(amtMatch[1].replace(/,/g, ""));
 
     const senderMatch = text.match(/debited\s+from\s+([A-Za-z\s.-]+?)\s+for/i) ||
-      text.match(/Dear\s+([A-Za-z\s.-]+?),?\s+you\s+have/i);
+      text.match(/Dear\s+([A-Za-z\s.-]+?),?\s+you\s+have/i) ||
+      text.match(/(?:sender|payer|customer name|from|debit account)[\s:;]+([A-Za-z0-9\s.*()-]+?)(?:\n|\r|$)/i);
     if (senderMatch) fields.senderName = cleanName(senderMatch[1]);
 
     const receiverMatch = text.match(/for\s+([A-Za-z\s.-]+?)\s+on\s+\d{1,2}\s+[A-Za-z]{3}/i) ||
       text.match(/to\s+\d{10,16}-([A-Za-z\s.-]+?)\s+on/i) ||
-      text.match(/transfer\s+to\s+([A-Za-z\s.-]+?)\s+by/i);
+      text.match(/transfer\s+to\s+([A-Za-z\s.-]+?)\s+by/i) ||
+      text.match(/(?:receiver|payee|to|receiver name|credit account)[\s:;]+([A-Za-z0-9\s.*()-]+?)(?:\n|\r|$)/i);
     if (receiverMatch) fields.receiverName = cleanName(receiverMatch[1]);
 
     const dateMatch = text.match(/on\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})/i) ||

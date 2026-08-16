@@ -53,6 +53,7 @@ async function analyzeWithGeminiVision(
       ".png": "image/png",
       ".webp": "image/webp",
       ".heic": "image/heic",
+      ".pdf": "application/pdf",
     };
     const mimeType = mimeMap[ext] ?? "image/jpeg";
 
@@ -460,10 +461,10 @@ function analyzeWithRules(imagePath: string): ReceiptAnalysisResult {
     reasons.push("Image file size is within normal range");
   }
 
-  const validTypes = [".jpg", ".jpeg", ".png", ".webp", ".heic"];
+  const validTypes = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".pdf"];
   if (validTypes.includes(metadata.extension)) {
     score += 5;
-    reasons.push(`Valid image format: ${metadata.extension}`);
+    reasons.push(`Valid file format: ${metadata.extension}`);
   } else {
     score -= 20;
     warnings.push(`Unusual file format: ${metadata.extension}`);
@@ -511,10 +512,19 @@ export async function analyzeReceiptImage(
   }
 
   try {
-    // 2. Perform Multi-Pass OCR
-    const ocrResult = await performMultiPassOCR(images);
-    const rawText = ocrResult.text;
-    const ocrConfidence = ocrResult.confidence;
+    const isPdf = imagePath.toLowerCase().endsWith(".pdf");
+    
+    let rawText = "";
+    let ocrConfidence = 0;
+
+    if (!isPdf) {
+      // 2. Perform Multi-Pass OCR for images
+      const ocrResult = await performMultiPassOCR(images);
+      rawText = ocrResult.text;
+      ocrConfidence = ocrResult.confidence;
+    } else {
+      logger.info("📄 PDF detected, skipping image OCR.");
+    }
 
     if (rawText && rawText.trim().length > 10) {
       // 3. Detect bank & run rule-based regex parsing
@@ -575,8 +585,8 @@ export async function analyzeReceiptImage(
       };
     }
 
-    // 4. If OCR failed completely (extremely blurry/unreadable text), try Gemini Vision directly
-    logger.info("🤖 OCR read no text. Sending image directly to Gemini Vision...");
+    // 4. If OCR failed completely (or it was a PDF), try Gemini Vision directly
+    logger.info("🤖 Routing directly to Gemini Vision (Multimodal)...");
     const visionResult = await analyzeWithGeminiVision(images.original);
     if (visionResult.result) {
       return visionResult.result;

@@ -191,4 +191,5 @@ export interface PaymentProviderAdapter {
   }>;
   parseSMS?(text: string): Promise<NormalizedTransaction | null>;
   parseUSSD?(text: string): Promise<NormalizedTransaction | null>;
+  parsePDF?(text: string): Promise<NormalizedTransaction | null>;
 }

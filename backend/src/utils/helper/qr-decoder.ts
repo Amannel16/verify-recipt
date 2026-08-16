@@ -24,6 +24,12 @@ export async function decodeQrCode(imagePath: string): Promise<string | null> {
       providedOptions?: any
     ) => { data: string } | null;
 
+    // Skip PDF files since Jimp cannot read them
+    if (imagePath.toLowerCase().endsWith(".pdf")) {
+      logger.info(`📄 PDF detected in QR decoder, skipping image-based decoding.`);
+      return null;
+    }
+
     // Load the image
     const image = await Jimp.read(imagePath);
     
