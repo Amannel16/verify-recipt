@@ -146,7 +146,7 @@ function extractReceiptIdFromUrl(url: string): string {
 function detectProviderFromUrl(url: string): string {
   const lower = url.toLowerCase();
 
-  if (lower.includes("cbe.com.et") || lower.includes("combanketh") || lower.includes("mreciept") || lower.includes("mreceipt")) return "cbe";
+  if (lower.includes("cbe.com.et") || lower.includes("combanketh") || lower.includes("mreciept") || lower.includes("mreceipt") || lower.includes("mbreciept") || lower.includes("mbreceipt")) return "cbe";
   if (lower.includes("ethiotelecom") || lower.includes("telebirr")) return "telebirr";
   if (lower.includes("dashenbank") || lower.includes("dashenbanksc") || lower.includes("amoleapp")) return "dashen";
   if (lower.includes("bankofabyssinia") || lower.includes("boabank") || lower.includes("apollo")) return "abyssinia";

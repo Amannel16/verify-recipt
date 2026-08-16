@@ -106,6 +106,17 @@ app.get("/.well-known/assetlinks.json", (_req, res) => {
 // Serve public static assets (including /.well-known)
 app.use(express.static(path.resolve("public")));
 
+// Route to serve the translation & feedback workbench UI
+app.get("/translate-ui", (_req, res) => {
+  res.sendFile(path.resolve("public/translate.html"));
+});
+
+// Official Web Privacy Policy Page (Google Play & GDPR Compliance)
+app.get("/privacy-policy", (_req, res) => {
+  res.sendFile(path.resolve("public/privacy-policy.html"));
+});
+
+
 // ─────────────────────────────────────────────────────────────
 // Routes & Rate Limiting
 // ─────────────────────────────────────────────────────────────
@@ -232,7 +243,7 @@ app.get("/delete-account", (_req, res) => {
     <div class="logo">🛡️ Geba AI</div>
     <h1>Account & Data Deletion Request</h1>
     <p>
-      Under Google Play Policies and Privacy guidelines, you can request the permanent deletion of your Geba AI account and all associated data (receipt records, profile details, notification history).
+      Under Google Play Policies and <a href="/privacy-policy" style="color: #3B82F6; text-decoration: none;">Privacy guidelines</a>, you can request the permanent deletion of your Geba AI account and all associated data (receipt records, profile details, notification history).
     </p>
     <div id="alertSuccess" class="alert alert-success"></div>
     <div id="alertError" class="alert alert-error"></div>
@@ -293,7 +304,13 @@ app.get("/delete-account", (_req, res) => {
   `);
 });
 
+import translateRoutes from "./modules/translate/route.js";
+import feedbackRoutes from "./modules/feedback/route.js";
+
 app.use("/api", appRoutes);
+app.use("/translate", translateRoutes);
+app.use("/feedback", feedbackRoutes);
+
 
 
 

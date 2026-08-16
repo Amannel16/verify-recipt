@@ -85,12 +85,16 @@ export class ProviderRegistry {
         "apps.cbe.com.et",
         "mreciept.cbe.com.et",
         "mreceipt.cbe.com.et",
+        "mbreciept.cbe.com.et",
+        "mbreceipt.cbe.com.et",
         "combanketh.et",
         "www.cbe.com.et",
       ],
       verificationDomains: [
         "mreciept.cbe.com.et",
         "mreceipt.cbe.com.et",
+        "mbreciept.cbe.com.et",
+        "mbreceipt.cbe.com.et",
         "apps.cbe.com.et",
       ],
       identifierTypes: ["TRANSACTION_ID", "REFERENCE"],
@@ -103,6 +107,10 @@ export class ProviderRegistry {
         /debited from your account/i,
         /cbe birr/i,
         /cbe account/i,
+        /thanks for banking with cbe/i,
+        /m[b]?reciept\.cbe\.com\.et/i,
+        /m[b]?receipt\.cbe\.com\.et/i,
+        /successfully transferred.*from account.*to account/i,
       ],
       ussdPatterns: [/\*847\#/i, /cbe birr transaction/i],
       verificationMethods: ["QR", "RECEIPT_URL", "TRANSACTION_ID", "OFFICIAL_PORTAL", "SMS"],
@@ -114,7 +122,7 @@ export class ProviderRegistry {
       supportsOfficialVerification: true,
       buildVerificationUrl: (tx) => {
         if (!tx.transactionId) return null;
-        return `https://mreciept.cbe.com.et/receipt/${tx.transactionId}`;
+        return `https://mbreciept.cbe.com.et/receipt/${tx.transactionId}`;
       },
     });
 
@@ -279,11 +287,11 @@ export class ProviderRegistry {
       ],
       verificationDomains: ["awashpay.awashbank.com", "ib.awashbank.com"],
       identifierTypes: ["TRANSACTION_ID", "REFERENCE"],
-      txIdPatterns: [/AWS[A-Z0-9]{8,14}/i, /[0-9]{10,16}/],
+      txIdPatterns: [/\b\d{14,16}\b/i, /AWS[A-Z0-9]{8,14}/i, /-?[A-Z0-9]{8,14}-[A-Z0-9]{6,10}/i, /\b-?[A-Z0-9]{10,25}\b/i],
       referencePatterns: [/REF[A-Z0-9]{8,14}/i],
-      accountPatterns: [/013[0-9]{10}/, /[0-9]{13}/],
+      accountPatterns: [/013[0-9*]{10}/, /[0-9*]{13}/, /1000[0-9]{9}/],
       phonePatterns: [/^(?:\+251|251|0)?9[0-9]{8}$/],
-      smsPatterns: [/awash bank/i, /awash birr/i, /awashpay/i],
+      smsPatterns: [/awash bank/i, /awash birr/i, /awashpay/i, /transferred to other bank/i, /transferred to/i, /contact center 8980/i, /awashpay\.awashbank\.com/i],
       ussdPatterns: [/\*901\#/i, /awash birr/i],
       verificationMethods: ["QR", "RECEIPT_URL", "TRANSACTION_ID", "OFFICIAL_PORTAL", "SMS"],
       requiredFields: ["amount", "transactionId"],
@@ -293,8 +301,9 @@ export class ProviderRegistry {
       supportsUSSD: true,
       supportsOfficialVerification: true,
       buildVerificationUrl: (tx) => {
-        if (!tx.transactionId) return null;
-        return `https://awashpay.awashbank.com/verify/${tx.transactionId}`;
+        const id = tx.transactionId || tx.receiptId;
+        if (!id) return null;
+        return `https://awashpay.awashbank.com:8225/${id}`;
       },
     });
 

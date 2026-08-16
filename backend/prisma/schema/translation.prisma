@@ -1,0 +1,32 @@
+model Translation {
+  id               String                @id @default(cuid())
+  sourceLanguage   String
+  targetLanguage   String
+  inputText        String                @db.Text
+  translatedText   String                @db.Text
+  detectedLanguage String
+  engine           String
+  createdAt        DateTime              @default(now())
+  feedbacks        TranslationFeedback[]
+
+  @@index([createdAt])
+  @@index([sourceLanguage, targetLanguage])
+  @@map("translations")
+}
+
+model TranslationFeedback {
+  id            String      @id @default(cuid())
+  translationId String
+  rating        Int
+  comment       String?     @db.Text
+  isHelpful     Boolean
+  flagReason    String?
+  clientIp      String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  translation   Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  @@index([translationId])
+  @@index([createdAt])
+  @@map("translation_feedbacks")
+}

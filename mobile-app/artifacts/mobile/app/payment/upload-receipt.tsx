@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { api } from "@/utils/api";
+import { api, normalizeFileUri } from "@/utils/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function UploadReceiptScreen() {
@@ -60,10 +60,7 @@ export default function UploadReceiptScreen() {
       }
 
       if (imageUri) {
-        let cleanUri = decodeURIComponent(imageUri);
-        if (Platform.OS === "android" && !cleanUri.startsWith("file://") && cleanUri.startsWith("file:")) {
-          cleanUri = cleanUri.replace("file:", "file://");
-        }
+        const cleanUri = normalizeFileUri(imageUri);
         const uriParts = cleanUri.split("/");
         const fileName = uriParts[uriParts.length - 1] || "receipt.jpg";
         const ext = fileName.split(".").pop()?.toLowerCase() || "jpg";

@@ -195,7 +195,8 @@ export async function verifyReceipt(
           if (scrapedData && scrapedData.isValid) {
             // Step 4: Cross-validate AI extraction vs scraped data
             logger.info("🔄 Step 4: Running cross-validation...");
-            crossValidation = crossValidate(aiResult, scrapedData);
+            const isMessageReceipt = /sms|ussd|paid|received|debited|credited|telebirr|cbe birr|m-pesa/i.test(aiResult.rawExtractedText || "");
+            crossValidation = crossValidate(aiResult, scrapedData, isMessageReceipt);
 
             // Populate missing/unknown sender details from official verified portal URL
             const isUnknownSender =
@@ -251,7 +252,8 @@ export async function verifyReceipt(
             logger.info(
               "🔄 Step 4: Running cross-validation (bank mismatch context)...",
             );
-            crossValidation = crossValidate(aiResult, scrapedData);
+            const isMessageReceipt = /sms|ussd|paid|received|debited|credited|telebirr|cbe birr|m-pesa/i.test(aiResult.rawExtractedText || "");
+            crossValidation = crossValidate(aiResult, scrapedData, isMessageReceipt);
 
             // Populate missing sender/receiver if available
             const isUnknownSender =

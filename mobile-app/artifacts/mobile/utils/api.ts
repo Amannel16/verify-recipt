@@ -23,6 +23,36 @@ function buildApiUrl(baseUrl: string, endpoint: string): string {
   return `${cleanBase}/api/${cleanEndpoint}`;
 }
 
+export function normalizeFileUri(fileUri: string): string {
+  let cleanUri = fileUri;
+  try {
+    cleanUri = decodeURIComponent(fileUri);
+  } catch {
+    cleanUri = fileUri;
+  }
+
+  if (Platform.OS === "android") {
+    if (cleanUri.startsWith("content://")) {
+      return cleanUri;
+    }
+    if (cleanUri.startsWith("file:")) {
+      return cleanUri.replace(/^file:\/*/, "file:///");
+    }
+    if (cleanUri.startsWith("/")) {
+      return `file://${cleanUri}`;
+    }
+  } else if (Platform.OS === "ios") {
+    if (cleanUri.startsWith("file:")) {
+      return cleanUri.replace(/^file:\/*/, "file:///");
+    }
+    if (cleanUri.startsWith("/")) {
+      return `file://${cleanUri}`;
+    }
+  }
+
+  return cleanUri;
+}
+
 class ApiClient {
   private baseUrl: string;
   public onUnauthorized?: () => void;
@@ -54,6 +84,8 @@ class ApiClient {
       body?: Record<string, unknown> | FormData;
       requireAuth?: boolean;
       isFormData?: boolean;
+      retries?: number;
+      timeoutMs?: number;
     },
   ): Promise<ApiResponse<T>> {
     const url = buildApiUrl(this.baseUrl, endpoint);
@@ -81,59 +113,88 @@ class ApiClient {
       }
     }
 
-    try {
-      const response = await fetch(url, {
-        method,
-        headers,
-        body: bodyContent,
-      });
+    const maxRetries = options?.retries ?? 2;
+    const timeoutMs = options?.timeoutMs ?? 60000;
+    let lastError: unknown = null;
 
-      const contentType = response.headers.get("content-type");
-      const isJson = contentType && contentType.includes("application/json");
-      let data: ApiResponse<T> | null = null;
-
-      if (isJson) {
-        try {
-          data = (await response.json()) as ApiResponse<T>;
-        } catch {
-          data = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          // Exponential backoff before retry (500ms, 1000ms)
+          await new Promise((resolve) => setTimeout(resolve, attempt * 500));
         }
-      }
 
-      if (!response.ok) {
-        // Handle 401 — token expired
-        if (response.status === 401) {
-          await this.clearToken();
-          if (this.onUnauthorized) {
-            this.onUnauthorized();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+        let response: Response;
+        try {
+          response = await fetch(url, {
+            method,
+            headers,
+            body: bodyContent,
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+
+        const contentType = response.headers.get("content-type");
+        const isJson = contentType && contentType.includes("application/json");
+        let data: ApiResponse<T> | null = null;
+
+        if (isJson) {
+          try {
+            data = (await response.json()) as ApiResponse<T>;
+          } catch {
+            data = null;
           }
         }
-        return {
-          success: false,
-          message:
-            data?.message ||
-            `Server error (${response.status}): ${response.statusText || "Unexpected response"}`,
-          error: data?.error,
-        };
-      }
 
-      if (!data) {
-        // Response was OK (e.g. 200), but not JSON (likely an HTML page from a wrong server route)
-        return {
-          success: false,
-          message: `Server returned non-JSON response (${response.status}). Please check API URL routing.`,
-        };
-      }
+        if (!response.ok) {
+          // Handle 401 — token expired
+          if (response.status === 401) {
+            await this.clearToken();
+            if (this.onUnauthorized) {
+              this.onUnauthorized();
+            }
+          }
+          return {
+            success: false,
+            message:
+              data?.message ||
+              `Server error (${response.status}): ${response.statusText || "Unexpected response"}`,
+            error: data?.error,
+          };
+        }
 
-      return data;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Network error";
-      console.error(`API Error [${method} ${endpoint}]:`, message);
-      return {
-        success: false,
-        message: `Network error: ${message}. Make sure the backend is running.`,
-      };
+        if (!data) {
+          // Response was OK (e.g. 200), but not JSON (likely an HTML page from a wrong server route)
+          return {
+            success: false,
+            message: `Server returned non-JSON response (${response.status}). Please check API URL routing.`,
+          };
+        }
+
+        return data;
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxRetries) {
+          const errMsg = error instanceof Error ? error.message : String(error);
+          console.warn(
+            `API Request [${method} ${endpoint}] failed (${errMsg}), retrying (attempt ${attempt + 1}/${maxRetries})...`,
+          );
+          continue;
+        }
+      }
     }
+
+    const message = lastError instanceof Error ? lastError.message : "Network error";
+    console.error(`API Error [${method} ${endpoint}]:`, message);
+    return {
+      success: false,
+      message: `Network error: ${message}. Make sure the backend is running.`,
+    };
   }
 
   // Convenience methods
@@ -162,11 +223,7 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const formData = new FormData();
 
-    // Decode and normalize URI
-    let cleanUri = decodeURIComponent(fileUri);
-    if (Platform.OS === "android" && !cleanUri.startsWith("file://") && cleanUri.startsWith("file:")) {
-      cleanUri = cleanUri.replace("file:", "file://");
-    }
+    const cleanUri = normalizeFileUri(fileUri);
 
     // Get filename and type from URI
     const uriParts = cleanUri.split("/");
@@ -196,6 +253,7 @@ class ApiClient {
       body: formData,
       isFormData: true,
       requireAuth: true,
+      retries: 2,
     });
   }
 }

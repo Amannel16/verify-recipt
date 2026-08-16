@@ -139,6 +139,7 @@ export async function processV2Verification(
   // 6. Cross-Validation & Merchant Expectation Matching
   let crossValResult = null;
   if (officialResult?.data) {
+    const isMsg = evidenceType === "SMS_TEXT" || evidenceType === "USSD_SCREENSHOT";
     crossValResult = crossValidate(
       {
         transactionId: normalizedTx.transactionId,
@@ -147,6 +148,7 @@ export async function processV2Verification(
         receiverName: normalizedTx.receiver?.name,
         date: normalizedTx.date,
         confidence: Math.round(normalizedTx.extractionConfidence * 100),
+        rawExtractedText: rawText,
       } as any,
       {
         isValid: true,
@@ -156,7 +158,8 @@ export async function processV2Verification(
         senderName: officialResult.data.sender?.name,
         receiverName: officialResult.data.receiver?.name,
         date: officialResult.data.date,
-      }
+      },
+      isMsg
     );
   }
 

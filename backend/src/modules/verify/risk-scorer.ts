@@ -220,7 +220,20 @@ export function calculateRiskScore(
         name: "Receiver Name Mismatch",
         score: receiverPenalty,
         status: "FAIL",
-        detail: `Recipient mismatch: Receipt screenshot shows "${receiverField.aiValue}" but official URL portal shows "${receiverField.scrapedValue}"`,
+        detail: `Recipient mismatch: Message/receipt shows "${receiverField.aiValue}" but official URL portal shows "${receiverField.scrapedValue}"`,
+      });
+    }
+
+    // Explicit check for Amount Mismatch penalty
+    const amountField = crossValidation.fieldMatches.find((f) => f.field === "Amount");
+    if (amountField && !amountField.matches && amountField.aiValue != null && amountField.scrapedValue != null) {
+      const amountPenalty = -45;
+      totalScore += amountPenalty;
+      checks.push({
+        name: "Amount Mismatch",
+        score: amountPenalty,
+        status: "FAIL",
+        detail: `Amount mismatch: Message/receipt shows ${amountField.aiValue} ETB but official URL portal shows ${amountField.scrapedValue} ETB`,
       });
     }
   }

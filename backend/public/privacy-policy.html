@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Geba AI Financial Verification Platform</title>
+  <meta name="description" content="Official Privacy Policy for Geba AI - Ethiopian Bank Receipt Verification & Fraud Prevention Platform. Learn how we encrypt and protect your data.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --card-hover: #334155;
+      --text: #F8FAFC;
+      --muted: #94A3B8;
+      --primary: #3B82F6;
+      --primary-hover: #2563EB;
+      --accent: #6366F1;
+      --success: #22C55E;
+      --danger: #EF4444;
+      --border: #334155;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding-bottom: 60px;
+    }
+    .header-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background-color: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: rgba(34, 197, 94, 0.15);
+      border: 1px solid var(--success);
+      color: #4ADE80;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .container {
+      max-width: 1040px;
+      margin: 40px auto 0;
+      padding: 0 20px;
+    }
+    .hero {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .hero h1 {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #FFFFFF 0%, #93C5FD 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 680px;
+      margin: 0 auto 20px;
+    }
+    .meta-pills {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .pill {
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .pill strong {
+      color: var(--text);
+    }
+    
+    /* Search Bar */
+    .search-wrapper {
+      max-width: 600px;
+      margin: 0 auto 36px;
+      position: relative;
+    }
+    .search-input {
+      width: 100%;
+      padding: 14px 18px 14px 46px;
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    /* Grid layout */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 32px;
+    }
+    @media (max-width: 800px) {
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+      .toc-sidebar {
+        display: none;
+      }
+    }
+    .toc-sidebar {
+      position: sticky;
+      top: 90px;
+      height: fit-content;
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .toc-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    .toc-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toc-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      display: block;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+    }
+    .toc-link:hover, .toc-link.active {
+      color: var(--primary);
+      background-color: rgba(59, 130, 246, 0.1);
+      font-weight: 600;
+    }
+
+    /* Policy Main Content */
+    .policy-sections {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .section-card {
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      transition: border-color 0.2s ease;
+    }
+    .section-card:hover {
+      border-color: #475569;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .section-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background-color: rgba(59, 130, 246, 0.12);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .section-body p {
+      color: #CBD5E1;
+      font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+    .section-body ul {
+      list-style-type: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .section-body li {
+      position: relative;
+      padding-left: 24px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .section-body li::before {
+      content: "•";
+      position: absolute;
+      left: 8px;
+      color: var(--primary);
+      font-size: 18px;
+    }
+
+    /* Summary Table Matrix */
+    .data-table-wrapper {
+      overflow-x: auto;
+      margin: 16px 0;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background-color: #0F172A;
+      color: var(--text);
+      padding: 12px 16px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Deletion Callout Card */
+    .deletion-card {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(185, 28, 28, 0.05) 100%);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 16px;
+      padding: 28px;
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+    @media (max-width: 600px) {
+      .deletion-card {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+    .deletion-btn {
+      background-color: var(--danger);
+      color: white;
+      text-decoration: none;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      white-space: nowrap;
+      transition: background-color 0.2s ease;
+    }
+    .deletion-btn:hover {
+      background-color: #DC2626;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar Nav -->
+  <header class="header-nav">
+    <a href="#" class="brand">
+      <div class="brand-icon">🛡️</div>
+      <span>Geba AI</span>
+    </a>
+    <div class="status-badge">
+      <span>●</span> Google Play & GDPR Compliant
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="hero">
+      <h1>Geba AI Privacy Policy</h1>
+      <p>Transparent, bank-grade financial data protection and zero unauthorized third-party sharing for Ethiopian bank receipt verification.</p>
+      <div class="meta-pills">
+        <div class="pill"><strong>Effective Date:</strong> August 13, 2026</div>
+        <div class="pill"><strong>Policy Version:</strong> 1.2</div>
+        <div class="pill"><strong>Encryption:</strong> TLS 1.3 / AES-256</div>
+      </div>
+    </div>
+
+    <!-- Live Search -->
+    <div class="search-wrapper">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" class="search-input" placeholder="Search policy topics (e.g., Bank APIs, Account Deletion, Gemini OCR)...">
+    </div>
+
+    <!-- Main Content with Sidebar -->
+    <div class="content-grid">
+      <!-- Table of Contents Sidebar -->
+      <aside class="toc-sidebar">
+        <div class="toc-title">Policy Navigation</div>
+        <ul class="toc-list">
+          <li><a href="#overview" class="toc-link">1. Overview</a></li>
+          <li><a href="#data-collected" class="toc-link">2. Data We Collect</a></li>
+          <li><a href="#ai-verification" class="toc-link">3. AI & Bank Verification</a></li>
+          <li><a href="#security" class="toc-link">4. Data Security</a></li>
+          <li><a href="#rights-deletion" class="toc-link">5. Data Rights & Erasure</a></li>
+          <li><a href="#contact" class="toc-link">6. Contact & DPO</a></li>
+        </ul>
+      </aside>
+
+      <!-- Policy Sections -->
+      <div class="policy-sections" id="sectionsContainer">
+        
+        <!-- Section 1 -->
+        <article class="section-card" id="overview">
+          <div class="section-header">
+            <div class="section-icon">🛡️</div>
+            <h2 class="section-title">1. Overview & Commitment</h2>
+          </div>
+          <div class="section-body">
+            <p>At Geba AI, financial data protection is core to our service. This Privacy Policy details how our mobile application, backend REST APIs, and enterprise web management tools collect, store, and safeguard transaction receipt information. We adhere strictly to Ethiopian digital financial security standards, Google Play Developer Policies, and global data privacy principles (GDPR).</p>
+            <ul>
+              <li><strong>Zero Data Monetization:</strong> We never sell, rent, or trade personal or corporate receipt data to third-party ad networks or brokers.</li>
+              <li><strong>Strict Purpose Limitation:</strong> Information collected is exclusively used to verify receipt authenticity and prevent fraudulent duplicate transactions.</li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- Section 2 -->
+        <article class="section-card" id="data-collected">
+          <div class="section-header">
+            <div class="section-icon">📄</div>
+            <h2 class="section-title">2. Information We Collect</h2>
+          </div>
+          <div class="section-body">
+            <p>We limit our data collection strictly to what is required to perform OCR receipt validation and maintain secure enterprise audit logs:</p>
+            
+            <div class="data-table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data Type</th>
+                    <th>Examples</th>
+                    <th>Purpose</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Receipt Images</strong></td>
+                    <td>CBE, Dashen, Telebirr, BoA, Awash, Zemen, M-Pesa transaction slips</td>
+                    <td>OCR text extraction & fraud detection analysis</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Transaction Metadata</strong></td>
+                    <td>Ref number, amount (ETB), timestamp, sender/receiver names</td>
+                    <td>Cross-verification against provider bank registries</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Account Details</strong></td>
+                    <td>Full name, business name, phone number, email address</td>
+                    <td>User authentication & enterprise organization hierarchy</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Technical Logs</strong></td>
+                    <td>IP address, device OS, app version, verification timestamps</td>
+                    <td>Security audit logging & rate limiting protection</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </article>
+
+        <!-- Section 3 -->
+        <article class="section-card" id="ai-verification">
+          <div class="section-header">
+            <div class="section-icon">🤖</div>
+            <h2 class="section-title">3. AI & Bank Provider Verification</h2>
+          </div>
+          <div class="section-body">
+            <p>Geba AI pairs Google Gemini Vision OCR with native provider adapters (CBE, Telebirr, Abyssinia, Dashen, BoA, Awash, Zemen) to validate payment authenticity:</p>
+            <ul>
+              <li><strong>Stateless AI Processing:</strong> Uploaded images are processed in stateless RAM buffers for OCR extraction and are NOT used to train public AI models.</li>
+              <li><strong>Provider API Querying:</strong> Extracted reference IDs are validated against bank confirmation feeds via secure TLS 1.3 API queries.</li>
+              <li><strong>Algorithmic Fraud Signals:</strong> Automatic checks inspect font consistency, pixel distortion, and duplicate reference reuse.</li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- Section 4 -->
+        <article class="section-card" id="security">
+          <div class="section-header">
+            <div class="section-icon">🔒</div>
+            <h2 class="section-title">4. Security & Encryption Standards</h2>
+          </div>
+          <div class="section-body">
+            <p>We deploy defense-in-depth infrastructure safeguards to prevent data breaches and unauthorized access:</p>
+            <ul>
+              <li><strong>TLS 1.3 Transport Security:</strong> All API communication between mobile devices, servers, and bank endpoints is encrypted in transit.</li>
+              <li><strong>AES-256 Storage Encryption:</strong> Database records and stored receipt assets are encrypted at rest with managed encryption keys.</li>
+              <li><strong>Enterprise Tenant Isolation:</strong> Multi-tenant enterprise data is strictly segregated using isolated workspace schemas and role-based permissions (RBAC).</li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- Section 5 -->
+        <article class="section-card" id="rights-deletion">
+          <div class="section-header">
+            <div class="section-icon">🗑️</div>
+            <h2 class="section-title">5. Data Rights & Permanent Erasure</h2>
+          </div>
+          <div class="section-body">
+            <p>You maintain full control over your data. In full compliance with Google Play guidelines, you can request permanent deletion of your Geba AI account and all stored history at any time.</p>
+            
+            <div class="deletion-card">
+              <div>
+                <h3 style="color: #F87171; font-size: 16px; margin-bottom: 4px;">Request Account & Data Removal</h3>
+                <p style="color: var(--muted); font-size: 13px; margin: 0;">Instantly initiate permanent erasure of your profile, verification logs, and registered mobile credentials.</p>
+              </div>
+              <a href="/delete-account" class="deletion-btn">Delete Account Portal →</a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Section 6 -->
+        <article class="section-card" id="contact">
+          <div class="section-header">
+            <div class="section-icon">✉️</div>
+            <h2 class="section-title">6. Contact Data Protection Officer</h2>
+          </div>
+          <div class="section-body">
+            <p>If you have questions, feedback, or compliance inquiries regarding this policy or our data safety procedures, please contact our Data Protection Officer:</p>
+            <ul>
+              <li><strong>Data Protection Officer:</strong> <a href="mailto:privacy@geba.ai" style="color: var(--primary);">privacy@geba.ai</a></li>
+              <li><strong>Technical Customer Support:</strong> <a href="mailto:support@geba.ai" style="color: var(--primary);">support@geba.ai</a></li>
+              <li><strong>Address:</strong> Geba AI Technologies PLC, Addis Ababa, Ethiopia</li>
+            </ul>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2026 Geba AI Technologies PLC. All rights reserved. • <a href="/delete-account">Delete Account Request</a> • <a href="/privacy-policy">Privacy Policy</a></p>
+  </footer>
+
+  <script>
+    // Live Search Filter
+    const searchInput = document.getElementById('searchInput');
+    const cards = document.querySelectorAll('.section-card');
+
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        if (text.includes(q)) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+
+    // TOC Active Link Highlight on Scroll
+    const tocLinks = document.querySelectorAll('.toc-link');
+    window.addEventListener('scroll', () => {
+      let current = '';
+      cards.forEach(card => {
+        const cardTop = card.offsetTop - 120;
+        if (window.scrollY >= cardTop) {
+          current = card.getAttribute('id');
+        }
+      });
+
+      tocLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
