@@ -85,18 +85,41 @@ function normalizeVerification(v: Record<string, unknown>): VerificationRecord {
     return `${cleanBase}${url.startsWith("/") ? "" : "/"}${url}`;
   };
 
+  const normTx = (v.transaction as Record<string, any>) || (v.normalizedTransaction as Record<string, any>);
+  const scraped = (v.scrapedData as Record<string, any>) || (v.official as Record<string, any>);
+  const crossVal = (v.crossValidation as Record<string, any>);
+
+  let senderName = (v.senderName as string) || normTx?.sender?.name || scraped?.senderName || scraped?.sender?.name;
+  if (!senderName || senderName === "Unknown" || senderName === "—") {
+    const sMatch = crossVal?.fieldMatches?.find((f: any) => f.field === "Sender Name");
+    if (sMatch?.scrapedValue && sMatch.scrapedValue !== "—") senderName = sMatch.scrapedValue as string;
+    else if (sMatch?.aiValue && sMatch.aiValue !== "—") senderName = sMatch.aiValue as string;
+  }
+  if (!senderName || senderName === "Unknown") senderName = "Unknown";
+
+  let receiverName = (v.receiverName as string) || normTx?.receiver?.name || scraped?.receiverName || scraped?.receiver?.name;
+  if (!receiverName || receiverName === "Unknown" || receiverName === "—") {
+    const rMatch = crossVal?.fieldMatches?.find((f: any) => f.field === "Receiver Name");
+    if (rMatch?.scrapedValue && rMatch.scrapedValue !== "—") receiverName = rMatch.scrapedValue as string;
+    else if (rMatch?.aiValue && rMatch.aiValue !== "—") receiverName = rMatch.aiValue as string;
+  }
+  if (!receiverName || receiverName === "Unknown") receiverName = "Unknown";
+
+  const rawTxId = (v.transactionId as string) || normTx?.transactionId || scraped?.transactionId;
+  const cleanTxId = (rawTxId && !rawTxId.startsWith("v2-")) ? rawTxId : (normTx?.transactionId || "N/A");
+
   return {
-    id: (v.id as string) ?? "",
+    id: (v.id as string) ?? (v.verificationId as string) ?? "",
     status,
     confidence: (v.confidence as number) ?? 0,
-    transactionId: (v.transactionId as string) ?? "N/A",
-    senderName: (v.senderName as string) ?? "Unknown",
-    receiverName: (v.receiverName as string) ?? "Unknown",
-    amount: (v.amount as number) ?? 0,
-    currency: (v.currency as string) ?? "ETB",
-    date: (v.date as string) ?? "",
-    time: (v.time as string) ?? "",
-    paymentMethod: (v.paymentMethod as string) ?? "Unknown",
+    transactionId: cleanTxId,
+    senderName,
+    receiverName,
+    amount: (v.amount as number) ?? normTx?.amount ?? scraped?.amount ?? 0,
+    currency: (v.currency as string) ?? normTx?.currency ?? "ETB",
+    date: (v.date as string) ?? normTx?.date ?? scraped?.date ?? "",
+    time: (v.time as string) ?? normTx?.time ?? "",
+    paymentMethod: (v.paymentMethod as string) ?? normTx?.provider?.toUpperCase() ?? "CBE",
     reasons: ((v.reasons as string[]) ?? []).filter(
       (r) => !/gemini|api failure|api key|vision/i.test(r)
     ),

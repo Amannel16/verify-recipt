@@ -41,6 +41,7 @@ export default function HistoryScreen() {
   const colors = useColors();
   const { verifications } = useVerifications();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");

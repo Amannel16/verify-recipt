@@ -84,25 +84,44 @@ export async function analyzeReceipt(
   const data = response.data as Record<string, any>;
   const status = ((data.status as string) ?? "SUSPICIOUS").toLowerCase() as VerificationStatus;
 
-  const normTx = data.normalizedTransaction as any;
-  const rawTxId = (data.transactionId as string) || normTx?.transactionId;
+  const normTx = (data.transaction as any) || (data.normalizedTransaction as any);
+  const scraped = (data.scrapedData as any) || (data.official as any);
+  const crossVal = (data.crossValidation as any);
+
+  const rawTxId = (data.transactionId as string) || normTx?.transactionId || scraped?.transactionId;
   const cleanTxId = (rawTxId && !rawTxId.startsWith("v2-")) ? rawTxId : (normTx?.transactionId || "N/A");
+
+  let senderName = (data.senderName as string) || normTx?.sender?.name || scraped?.senderName || scraped?.sender?.name;
+  if (!senderName || senderName === "Unknown" || senderName === "—") {
+    const sMatch = crossVal?.fieldMatches?.find((f: any) => f.field === "Sender Name");
+    if (sMatch?.scrapedValue && sMatch.scrapedValue !== "—") senderName = sMatch.scrapedValue as string;
+    else if (sMatch?.aiValue && sMatch.aiValue !== "—") senderName = sMatch.aiValue as string;
+  }
+  if (!senderName || senderName === "Unknown") senderName = "Unknown";
+
+  let receiverName = (data.receiverName as string) || normTx?.receiver?.name || scraped?.receiverName || scraped?.receiver?.name;
+  if (!receiverName || receiverName === "Unknown" || receiverName === "—") {
+    const rMatch = crossVal?.fieldMatches?.find((f: any) => f.field === "Receiver Name");
+    if (rMatch?.scrapedValue && rMatch.scrapedValue !== "—") receiverName = rMatch.scrapedValue as string;
+    else if (rMatch?.aiValue && rMatch.aiValue !== "—") receiverName = rMatch.aiValue as string;
+  }
+  if (!receiverName || receiverName === "Unknown") receiverName = "Unknown";
 
   const rawReasons = Array.isArray(data.reasons) ? data.reasons : [];
   const rawWarnings = Array.isArray(data.warnings) ? data.warnings : [];
 
   return {
-    id: (data.id as string) ?? "",
+    id: (data.id as string) ?? (data.verificationId as string) ?? "",
     status,
     confidence: (data.confidence as number) ?? 0,
     transactionId: cleanTxId,
-    senderName: (data.senderName as string) ?? normTx?.sender?.name ?? "Unknown",
-    receiverName: (data.receiverName as string) ?? normTx?.receiver?.name ?? "Unknown",
-    amount: (data.amount as number) ?? normTx?.amount ?? 0,
+    senderName,
+    receiverName,
+    amount: (data.amount as number) ?? normTx?.amount ?? scraped?.amount ?? 0,
     currency: (data.currency as string) ?? normTx?.currency ?? "ETB",
-    date: (data.date as string) ?? normTx?.date ?? new Date().toLocaleDateString(),
+    date: (data.date as string) ?? normTx?.date ?? scraped?.date ?? new Date().toLocaleDateString(),
     time: (data.time as string) ?? normTx?.time ?? new Date().toLocaleTimeString(),
-    paymentMethod: (data.paymentMethod as string) ?? normTx?.provider?.toUpperCase() ?? "Unknown",
+    paymentMethod: (data.paymentMethod as string) ?? normTx?.provider?.toUpperCase() ?? "CBE",
     reasons: rawReasons.filter((r: any) => typeof r === "string" && !/gemini|api failure|api key|vision/i.test(r)),
     warnings: rawWarnings.filter((w: any) => typeof w === "string" && !/gemini|api failure|api key|vision/i.test(w)),
     imageUrl: (data.imageUrl as string) ?? undefined,

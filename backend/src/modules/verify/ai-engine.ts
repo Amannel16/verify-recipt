@@ -4,6 +4,7 @@ import { logger } from "@/src/utils/logger/logger.js";
 import appConfig from "@/src/config/app_configs.js";
 import { detectBankFromText, parseReceiptWithBankRules } from "./bank-rules.js";
 import { preprocessReceiptImage, type PreprocessedImages } from "@/src/utils/helper/image-preprocessor.js";
+import { extractTextFromPdf } from "./receipt-scraper.js";
 
 export interface ReceiptAnalysisResult {
   status: "APPROVED" | "SUSPICIOUS" | "REJECTED";
@@ -518,13 +519,20 @@ export async function analyzeReceiptImage(
     let rawText = "";
     let ocrConfidence = 0;
 
-    if (!isPdf) {
+    if (isPdf) {
+      logger.info("📄 PDF detected, performing native PDF text extraction...");
+      try {
+        const pdfBuf = fs.readFileSync(imagePath);
+        rawText = extractTextFromPdf(pdfBuf);
+        ocrConfidence = 95;
+      } catch (e: any) {
+        logger.warn(`📄 Native PDF extraction failed: ${e.message}`);
+      }
+    } else {
       // 2. Perform Multi-Pass OCR for images
       const ocrResult = await performMultiPassOCR(images);
       rawText = ocrResult.text;
       ocrConfidence = ocrResult.confidence;
-    } else {
-      logger.info("📄 PDF detected, skipping image OCR.");
     }
 
     if (rawText && rawText.trim().length > 10) {

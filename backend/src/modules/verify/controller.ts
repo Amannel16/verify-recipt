@@ -193,11 +193,6 @@ export async function verifyReceipt(
           scrapedData = await scrapeReceiptUrl(receiptUrl, provider, receiptId);
 
           if (scrapedData && scrapedData.isValid) {
-            // Step 4: Cross-validate AI extraction vs scraped data
-            logger.info("🔄 Step 4: Running cross-validation...");
-            const isMessageReceipt = /sms|ussd|paid|received|debited|credited|telebirr|cbe birr|m-pesa/i.test(aiResult.rawExtractedText || "");
-            crossValidation = crossValidate(aiResult, scrapedData, isMessageReceipt);
-
             // Populate missing/unknown sender details from official verified portal URL
             const isUnknownSender =
               !aiResult.senderName ||
@@ -225,6 +220,23 @@ export async function verifyReceipt(
                 aiResult.receiverAccount = scrapedData.receiverAccount;
               }
             }
+
+            if (!aiResult.amount && scrapedData.amount) {
+              aiResult.amount = scrapedData.amount;
+            }
+
+            if (!aiResult.transactionId && scrapedData.transactionId) {
+              aiResult.transactionId = scrapedData.transactionId;
+            }
+
+            if (!aiResult.date && scrapedData.date) {
+              aiResult.date = scrapedData.date;
+            }
+
+            // Step 4: Cross-validate AI extraction vs scraped data
+            logger.info("🔄 Step 4: Running cross-validation...");
+            const isMessageReceipt = /sms|ussd|paid|received|debited|credited|telebirr|cbe birr|m-pesa/i.test(aiResult.rawExtractedText || "");
+            crossValidation = crossValidate(aiResult, scrapedData, isMessageReceipt);
           } else {
             logger.warn(
               "⚠️ URL scraping returned invalid data — skipping cross-validation",

@@ -139,6 +139,37 @@ export async function processV2Verification(
   // 6. Cross-Validation & Merchant Expectation Matching
   let crossValResult = null;
   if (officialResult?.data) {
+    // Populate missing/unknown normalizedTx fields from official verified portal record
+    const isUnknownReceiver = !normalizedTx.receiver?.name || /unknown|n\/a|^$/i.test(normalizedTx.receiver.name.trim());
+    if (isUnknownReceiver && officialResult.data.receiver?.name) {
+      logger.info(`💡 Populating missing receiver from official portal: ${officialResult.data.receiver.name}`);
+      normalizedTx.receiver = {
+        name: officialResult.data.receiver.name,
+        account: officialResult.data.receiver.account || normalizedTx.receiver?.account,
+      };
+    }
+
+    const isUnknownSender = !normalizedTx.sender?.name || /unknown|telebirr user|n\/a|^$/i.test(normalizedTx.sender.name.trim());
+    if (isUnknownSender && officialResult.data.sender?.name) {
+      logger.info(`💡 Populating missing sender from official portal: ${officialResult.data.sender.name}`);
+      normalizedTx.sender = {
+        name: officialResult.data.sender.name,
+        account: officialResult.data.sender.account || normalizedTx.sender?.account,
+      };
+    }
+
+    if (!normalizedTx.amount && officialResult.data.amount) {
+      normalizedTx.amount = officialResult.data.amount;
+    }
+
+    if (!normalizedTx.transactionId && officialResult.data.transactionId) {
+      normalizedTx.transactionId = officialResult.data.transactionId;
+    }
+
+    if (!normalizedTx.date && officialResult.data.date) {
+      normalizedTx.date = officialResult.data.date;
+    }
+
     const isMsg = evidenceType === "SMS_TEXT" || evidenceType === "USSD_SCREENSHOT";
     crossValResult = crossValidate(
       {
@@ -156,7 +187,9 @@ export async function processV2Verification(
         transactionId: officialResult.data.transactionId,
         amount: officialResult.data.amount,
         senderName: officialResult.data.sender?.name,
+        senderAccount: officialResult.data.sender?.account,
         receiverName: officialResult.data.receiver?.name,
+        receiverAccount: officialResult.data.receiver?.account,
         date: officialResult.data.date,
       },
       isMsg

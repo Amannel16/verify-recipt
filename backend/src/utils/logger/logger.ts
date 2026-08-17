@@ -21,14 +21,15 @@ const winstonLogger = (lokiUrl: string, name: string, level: string, nodeEnv: st
         },
     };
     let transports = [];
-    if (nodeEnv === 'development') {
+    if (nodeEnv === 'test') {
+        transports = [new winston.transports.Console(options.console)];
+    } else if (nodeEnv === 'development') {
         transports = [
             new winston.transports.Console(options.console),
-            new LokiTransport(options.loki),
+            ...(lokiUrl ? [new LokiTransport(options.loki)] : []),
         ];
-    }
-    else {
-        transports = [new LokiTransport(options.loki)];
+    } else {
+        transports = lokiUrl ? [new LokiTransport(options.loki)] : [new winston.transports.Console(options.console)];
     }
     const logger = winston.createLogger({
         exitOnError: false,

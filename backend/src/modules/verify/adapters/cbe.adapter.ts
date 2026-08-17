@@ -57,10 +57,13 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
         receiptId: scraped.receiptId || transaction.receiptId,
         transactionId: scraped.transactionId || (transaction.transactionId?.startsWith("FT") ? transaction.transactionId : undefined),
         amount: scraped.amount,
+        totalAmount: scraped.totalAmount,
+        fee: scraped.fees,
         sender: { name: scraped.senderName, account: scraped.senderAccount },
         receiver: { name: scraped.receiverName, account: scraped.receiverAccount },
         date: scraped.date,
         status: scraped.status,
+        paymentMethod: scraped.paymentType || "CBE",
       },
       rawHtml: scraped.rawHtml,
     };
@@ -74,10 +77,27 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
     const tokenMatch = receiptUrl ? (receiptUrl.includes("/v2-") ? "v2-" + receiptUrl.split("/v2-").pop() : receiptUrl.split("/").pop()) : undefined;
 
     const txMatch = text.match(/\b(FT[A-Z0-9]{8,22})\b/i) || (tokenMatch ? [null, tokenMatch] : null);
-    const amtMatch = text.match(/(?:ETB|Br\.?)\s*([\d,]+(?:\.\d{1,2})?)/i) ||
-      text.match(/transferred\s*(?:ETB|Br\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    
+    // Amount extraction
+    const amtMatch = text.match(/transferred\s*(?:ETB|Br\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/(?:ETB|Br\.?)\s*([\d,]+(?:\.\d{1,2})?)/i);
+
+    const totalAmtMatch = text.match(/with\s+total\s+of\s*(?:ETB|Br\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i) ||
+      text.match(/(?:total amount|total debited)[:\s]*(?:ETB|Br\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+
+    // Fee components: Service charge, VAT, Disaster recovery
+    let feeSum = 0;
+    const scMatch = text.match(/service\s*charge\s*(?:of)?[:\s]*(?:etb|br\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (scMatch) feeSum += parseFloat(scMatch[1].replace(/,/g, ""));
+
+    const vatMatch = text.match(/vat\s*(?:\(15%\))?\s*(?:of)?[:\s]*(?:etb|br\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (vatMatch) feeSum += parseFloat(vatMatch[1].replace(/,/g, ""));
+
+    const drMatch = text.match(/(?:disaster\s+recovery|drrf)\s*(?:\(5%\))?\s*(?:of)?[:\s]*(?:etb|br\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (drMatch) feeSum += parseFloat(drMatch[1].replace(/,/g, ""));
 
     const senderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)\s+You\s+have/i);
+    const senderAccMatch = text.match(/from\s+account\s+([0-9*]{8,18})/i);
     const receiverMatch = text.match(/to\s+(?:account\s+)?([0-9*]{8,18})\s*\(([^)]+)\)/i);
 
     return {
@@ -87,7 +107,10 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
       receiptId: tokenMatch,
       receiptUrl,
       amount: amtMatch ? parseFloat(amtMatch[1].replace(/,/g, "")) : undefined,
-      sender: senderMatch ? { name: senderMatch[1].trim() } : undefined,
+      totalAmount: totalAmtMatch ? parseFloat(totalAmtMatch[1].replace(/,/g, "")) : undefined,
+      fee: feeSum > 0 ? feeSum : undefined,
+      currency: "ETB",
+      sender: senderMatch ? { name: senderMatch[1].trim(), account: senderAccMatch ? senderAccMatch[1] : undefined } : undefined,
       receiver: receiverMatch ? { name: receiverMatch[2].trim(), account: receiverMatch[1] } : undefined,
       extractionConfidence: 0.95,
     };

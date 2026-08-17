@@ -1,6 +1,6 @@
 import { NormalizedTransaction } from "./types.js";
 import { providerRegistry } from "./provider-registry.js";
-import { parseReceiptWithBankRules } from "./bank-rules.js";
+import { parseReceiptWithBankRules, detectBankFromText } from "./bank-rules.js";
 import { logger } from "../../utils/logger/logger.js";
 
 export function parseSmsText(smsText: string): NormalizedTransaction | null {
@@ -37,7 +37,7 @@ export function parseSmsText(smsText: string): NormalizedTransaction | null {
     receiptUrl: receiptUrl,
     amount: parsedRules.amount ?? undefined,
     totalAmount: parsedRules.totalAmount ?? undefined,
-    fees: parsedRules.fees ?? undefined,
+    fee: parsedRules.fees ?? undefined,
     currency: "ETB",
     sender: parsedRules.senderName ? { name: parsedRules.senderName, account: parsedRules.senderAccount ?? undefined } : undefined,
     receiver: parsedRules.receiverName ? { name: parsedRules.receiverName, account: parsedRules.receiverAccount ?? undefined } : undefined,

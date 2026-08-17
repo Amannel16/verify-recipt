@@ -9,10 +9,15 @@ export interface ScrapedReceiptData {
   transactionId?: string;
   transferReference?: string;
   amount?: number;
+  totalAmount?: number;
+  fees?: number;
   senderName?: string;
   senderAccount?: string;
   receiverName?: string;
   receiverAccount?: string;
+  paymentType?: string;
+  reason?: string;
+  amountInWords?: string;
   date?: string;
   status?: string;
   error?: string;
@@ -156,14 +161,32 @@ function parsePdfStreamText(decompressed: string): string {
 // ==========================================
 function parseCbeDate(dateStr: string): string | undefined {
   try {
-    // e.g. "09/09/2025, 10:20:00 AM" or "09/09/2025, 10:20:00 PM"
-    const match = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)/i);
-    if (match) {
-      let [_, month, day, year, hourStr, minute, second, ampm] = match;
+    // Format 1: "09/09/2025, 10:20:00 AM" or "09/09/2025, 10:20 AM"
+    const m1 = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)/i);
+    if (m1) {
+      let [_, month, day, year, hourStr, minute, secondStr, ampm] = m1;
       let hour = parseInt(hourStr, 10);
       if (ampm.toUpperCase() === "PM" && hour < 12) hour += 12;
       if (ampm.toUpperCase() === "AM" && hour === 12) hour = 0;
-      const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10), hour, parseInt(minute, 10), parseInt(second, 10));
+      const second = secondStr ? parseInt(secondStr, 10) : 0;
+      const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10), hour, parseInt(minute, 10), second);
+      return d.toISOString();
+    }
+
+    // Format 2: "Aug 16, 2026, 6:35 PM" or "August 16, 2026, 6:35:00 PM"
+    const m2 = dateStr.match(/([A-Za-z]{3,9})\s+(\d{1,2}),?\s*(\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)/i);
+    if (m2) {
+      let [_, monthName, day, year, hourStr, minute, secondStr, ampm] = m2;
+      const months: Record<string, number> = {
+        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+        january: 0, february: 1, march: 2, april: 3, june: 5, july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+      };
+      const month = months[monthName.toLowerCase()] ?? 0;
+      let hour = parseInt(hourStr, 10);
+      if (ampm.toUpperCase() === "PM" && hour < 12) hour += 12;
+      if (ampm.toUpperCase() === "AM" && hour === 12) hour = 0;
+      const second = secondStr ? parseInt(secondStr, 10) : 0;
+      const d = new Date(parseInt(year, 10), month, parseInt(day, 10), hour, parseInt(minute, 10), second);
       return d.toISOString();
     }
   } catch (e) {
@@ -242,21 +265,55 @@ async function scrapeCbeReceipt(url: string, providerId: string, inputId: string
     return match?.[1]?.trim();
   };
 
-  const referenceNo = extractField(/(?:Reference No|Txn Ref|Transaction Ref|Ref No|FT No)[:\s]*([A-Z0-9_-]+)/i) ||
-                      extractField(/(FT[A-Z0-9]{8,14})/i);
-  const customerName = extractField(/(?:Customer Name|Payer|Sender|From)[:\s]*([A-Za-z\s]+?)(?:\s+(?:To|Receiver|Payee|Amount|Date)|$)/i);
-  const receiverName = extractField(/(?:Receiver|Payee|To|Beneficiary)[:\s]*([A-Za-z\s]+?)(?:\s+(?:Amount|Date|Ref|Status)|$)/i);
-  const paymentDate = extractField(/(?:Payment Date & Time|Transaction Date|Date)[:\s]*([\d/:,\sAPMapm-]+)/i);
-  const transferredAmount = extractField(/(?:Transferred Amount|Amount|Total)[:\s]*([\d,.]+)\s*(?:ETB|Birr)?/i);
+  const statusMatch = extractField(/Status[:\s]+([A-Z_]+)/i);
+  const referenceNo = extractField(/(?:Reference No\.?\s*(?:\(VAT Invoice No\))?|VAT Receipt No|Txn Ref|Transaction Ref|Ref No|FT No)[:\s]*([A-Z0-9_-]+)/i) ||
+                      extractField(/\b(FT[A-Z0-9]{8,18})\b/i);
+
+  // Extract Payer & Sender Account
+  const payerName = extractField(/Payer[:\s]+([A-Za-z\s.-]+?)(?=\s+Account[:\s]+[A-Za-z0-9*]{4,18}|\s+(?:Receiver|Payment|Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total|Amount)|$)/i) ||
+                    extractField(/Customer Name[:\s]+([A-Za-z\s.-]+?)(?=\s+(?:Region|City|Sub City|Wereda|VAT|TIN|Branch|Payment|Payer|Amount)|$)/i);
+  
+  const senderAccount = extractField(/Payer[:\s]+[A-Za-z\s.-]+?\s+Account[:\s]+([A-Za-z0-9*]{4,18})/i) ||
+                        extractField(/Account[:\s]+([15][0-9*]{4,15})/i);
+
+  // Extract Receiver & Receiver Account
+  const receiverName = extractField(/Receiver[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+Account[:\s]+[A-Za-z0-9*]{4,18}|\s+(?:Payment Type|Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total|Amount)|$)/i);
+  const receiverAccount = extractField(/Receiver[:\s]+[A-Za-z0-9\s.&'-]+?\s+Account[:\s]+([A-Za-z0-9*]{4,18})/i);
+
+  // Extract Payment Type & Reason
+  const paymentType = extractField(/Payment Type[:\s]+([A-Z0-9\s_-]+?)(?=\s+(?:Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total)|$)/i);
+  const reason = extractField(/Reason\s*\/\s*Type of service[:\s]+([A-Za-z0-9\s_-]+?)(?=\s+(?:Transferred|Service|VAT|Disaster|Total)|$)/i);
+
+  // Dates & Amounts
+  const paymentDate = extractField(/Payment Date & Time[:\s]+([\d/:,\sAPMapm-]+)/i) ||
+                      extractField(/(?:Transaction Date|Date)[:\s]+([\d/:,\sAPMapm-]+)/i);
+  
+  const transferredAmount = extractField(/Transferred Amount[:\s]+([\d,.]+)\s*(?:ETB|Birr)?/i) ||
+                            extractField(/(?:Amount|Total)[:\s]+([\d,.]+)\s*(?:ETB|Birr)?/i);
+
+  const totalDebitedAmount = extractField(/Total amount debited from customer's account[:\s]+([\d,.]+)\s*(?:ETB|Birr)?/i);
+
+  // Fee Breakdown
+  const serviceChargeStr = extractField(/Service Charge[:\s]+([\d,.]+)\s*(?:ETB|Birr)?/i);
+  const vatStr = extractField(/VAT\s*(?:\(15%\))?[:\s]+([\d,.]+)\s*(?:ETB|Birr)?/i);
+  const disasterRecoveryStr = extractField(/Disaster Recovery\s*(?:\(5%\))?[:\s]+([\d,.]+)\s*(?:ETB|Birr)?/i);
+
+  let feeSum = 0;
+  if (serviceChargeStr) feeSum += parseFloat(serviceChargeStr.replace(/,/g, ""));
+  if (vatStr) feeSum += parseFloat(vatStr.replace(/,/g, ""));
+  if (disasterRecoveryStr) feeSum += parseFloat(disasterRecoveryStr.replace(/,/g, ""));
+
+  const amountInWords = extractField(/Amount in Word[:\s]+([A-Za-z\s]+?)(?=\s+(?:Payment|Payer|Customer|Total)|$)/i);
 
   // Extract receipt ID from URL token (e.g. "v2-hfHCxGiuGMJrEq78pDzZ")
-  const urlToken = url.includes("/v2-") ? url.split("/v2-").pop() : url.split("/").pop();
+  const urlToken = url.includes("/v2-") ? "v2-" + url.split("/v2-").pop() : url.split("/").pop();
   const cbeReceiptId = urlToken || inputId;
   const cbeTxId = referenceNo || (inputId.startsWith("FT") ? inputId : undefined);
 
+  const statusStr = statusMatch ? statusMatch.toUpperCase() : (cleanText.toLowerCase().includes("completed") ? "COMPLETED" : "SUCCESS");
   const isValid = !!cbeTxId || !!cbeReceiptId || !!transferredAmount || cleanText.toLowerCase().includes("cbe");
 
-  logger.info(`🏦 CBE Scraped Data: receiptId=${cbeReceiptId}, txId=${cbeTxId || "N/A"}, amount=${transferredAmount}, sender=${customerName}, receiver=${receiverName}`);
+  logger.info(`🏦 CBE Scraped Data: receiptId=${cbeReceiptId}, txId=${cbeTxId || "N/A"}, status=${statusStr}, amount=${transferredAmount}, total=${totalDebitedAmount}, fees=${feeSum}, sender=${payerName} (${senderAccount}), receiver=${receiverName} (${receiverAccount})`);
 
   return {
     isValid,
@@ -264,10 +321,17 @@ async function scrapeCbeReceipt(url: string, providerId: string, inputId: string
     receiptId: cbeReceiptId,
     transactionId: cbeTxId,
     amount: transferredAmount ? parseFloat(transferredAmount.replace(/,/g, "")) : undefined,
-    senderName: customerName,
-    receiverName: receiverName,
+    totalAmount: totalDebitedAmount ? parseFloat(totalDebitedAmount.replace(/,/g, "")) : undefined,
+    fees: feeSum > 0 ? feeSum : undefined,
+    senderName: payerName,
+    senderAccount,
+    receiverName,
+    receiverAccount,
+    paymentType,
+    reason,
+    amountInWords,
     date: paymentDate ? parseCbeDate(paymentDate) : undefined,
-    status: isValid ? "SUCCESS" : "FAILED",
+    status: isValid ? statusStr : "FAILED",
     rawHtml: cleanText.substring(0, 5000)
   };
 }

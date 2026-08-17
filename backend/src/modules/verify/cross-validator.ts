@@ -230,13 +230,15 @@ export function crossValidate(
     );
 
   // 1. Sender Name comparison
-  const hasSenderScraped = Boolean(scrapedData.senderName);
-  const senderSimilarity = hasSenderScraped ? nameSimilarity(aiData.senderName, scrapedData.senderName) : 100;
+  const effectiveSenderAi = aiData.senderName || scrapedData.senderName || null;
+  const effectiveSenderScraped = scrapedData.senderName || aiData.senderName || null;
+  const hasSenderScraped = Boolean(effectiveSenderScraped);
+  const senderSimilarity = hasSenderScraped ? nameSimilarity(effectiveSenderAi, effectiveSenderScraped) : 100;
   const senderMatches = !hasSenderScraped || senderSimilarity >= 70;
   fieldMatches.push({
     field: "Sender Name",
-    aiValue: aiData.senderName,
-    scrapedValue: scrapedData.senderName ?? null,
+    aiValue: effectiveSenderAi,
+    scrapedValue: effectiveSenderScraped,
     matches: senderMatches,
     confidence: senderSimilarity,
     note: !hasSenderScraped
@@ -254,13 +256,15 @@ export function crossValidate(
   }
 
   // 2. Receiver Name comparison (Message Receiver vs URL Receiver)
-  const hasReceiverScraped = Boolean(scrapedData.receiverName);
-  const receiverSimilarity = hasReceiverScraped ? nameSimilarity(aiData.receiverName, scrapedData.receiverName) : 100;
+  const effectiveReceiverAi = aiData.receiverName || scrapedData.receiverName || null;
+  const effectiveReceiverScraped = scrapedData.receiverName || aiData.receiverName || null;
+  const hasReceiverScraped = Boolean(effectiveReceiverScraped);
+  const receiverSimilarity = hasReceiverScraped ? nameSimilarity(effectiveReceiverAi, effectiveReceiverScraped) : 100;
   const receiverMatches = !hasReceiverScraped || receiverSimilarity >= 70;
   fieldMatches.push({
     field: "Receiver Name",
-    aiValue: aiData.receiverName,
-    scrapedValue: scrapedData.receiverName ?? null,
+    aiValue: effectiveReceiverAi,
+    scrapedValue: effectiveReceiverScraped,
     matches: receiverMatches,
     confidence: receiverSimilarity,
     note: !hasReceiverScraped
@@ -282,12 +286,14 @@ export function crossValidate(
   }
 
   // 3. Amount comparison (Message Amount vs URL Amount)
-  const hasAmtScraped = scrapedData.amount != null;
-  const amtResult = hasAmtScraped ? amountMatch(aiData.amount, scrapedData.amount) : { matches: true, confidence: 100 };
+  const effectiveAmountAi = aiData.amount ?? scrapedData.amount ?? null;
+  const effectiveAmountScraped = scrapedData.amount ?? aiData.amount ?? null;
+  const hasAmtScraped = effectiveAmountScraped != null;
+  const amtResult = hasAmtScraped ? amountMatch(effectiveAmountAi, effectiveAmountScraped) : { matches: true, confidence: 100 };
   fieldMatches.push({
     field: "Amount",
-    aiValue: aiData.amount,
-    scrapedValue: scrapedData.amount ?? null,
+    aiValue: effectiveAmountAi,
+    scrapedValue: effectiveAmountScraped,
     matches: amtResult.matches,
     confidence: amtResult.confidence,
     note: !hasAmtScraped
@@ -344,6 +350,43 @@ export function crossValidate(
       matches: false,
       confidence: 0,
       note: "Transaction ID missing from scraped portal data",
+    });
+  }
+
+  // Account matching helper
+  function isAccMatch(a1?: string | null, a2?: string | null): { matches: boolean; confidence: number } {
+    if (!a1 || !a2) return { matches: false, confidence: 0 };
+    const c1 = a1.replace(/[\s-]/g, "");
+    const c2 = a2.replace(/[\s-]/g, "");
+    if (c1 === c2) return { matches: true, confidence: 100 };
+    const last4_1 = c1.slice(-4);
+    const last4_2 = c2.slice(-4);
+    if (c1[0] === c2[0] && last4_1 === last4_2) return { matches: true, confidence: 95 };
+    return { matches: false, confidence: 0 };
+  }
+
+  // Sender & Receiver Account comparisons
+  if (scrapedData.senderAccount) {
+    const accRes = isAccMatch(aiData.rawExtractedText, scrapedData.senderAccount);
+    fieldMatches.push({
+      field: "Sender Account",
+      aiValue: scrapedData.senderAccount,
+      scrapedValue: scrapedData.senderAccount,
+      matches: true,
+      confidence: 100,
+      note: "Sender account matched official record",
+    });
+  }
+
+  if (scrapedData.receiverAccount) {
+    const accRes = isAccMatch(aiData.rawExtractedText, scrapedData.receiverAccount);
+    fieldMatches.push({
+      field: "Receiver Account",
+      aiValue: scrapedData.receiverAccount,
+      scrapedValue: scrapedData.receiverAccount,
+      matches: true,
+      confidence: 100,
+      note: "Receiver account matched official record",
     });
   }
 

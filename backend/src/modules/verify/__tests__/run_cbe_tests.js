@@ -132,10 +132,165 @@ const crossVal = crossValidate(
 assert(crossVal.overallMatch === "MATCH", `Cross-validation result: ${crossVal.overallMatch}`);
 assert(crossVal.crossValidationScore >= 95, `Cross-validation score >= 95% (Actual: ${crossVal.crossValidationScore}%)`);
 
+// ---------------------------------------------------------
+// Test Suite 6: CBE Official PDF Document Structure Parsing (Image 1 PDF)
+// ---------------------------------------------------------
+console.log("\n📌 Test Suite 6: CBE Official PDF Receipt Document Structure");
+
+const pdfReceiptText = `
+Commercial Bank of Ethiopia
+Customer Receipt
+Status: COMPLETED
+Company Address & Other Information
+Country: Ethiopia
+City: Addis Ababa
+Address: Ras Desta Damtew St, 01, Kirkos
+Postal code: 255
+SWIFT Code: CBETETAA
+Email: info@cbe.com.et
+Tel: +251-551-50-04
+Fax: +251-551-45-22
+Tfn: 0000006966
+VAT Receipt No: FT262281DKN0
+VAT Registration No: 011140
+VAT Registration Date: 01/01/2003
+Customer Information
+Customer Name: Amanuel Andemo Angello
+Region: -
+City: -
+Sub City: -
+Wereda/Kebele: -
+VAT Registration No: -
+VAT Registration Date: -
+TIN (TAX ID): -
+Branch: -
+Amount in Word:
+Two Hundred Fifty ETB and Sixty One cents
+Payment / Transaction Information
+Payer: Amanuel Andemo Angello
+Account: 1****8096
+Receiver: Revel Trading Plc
+Account: 1****3588
+Payment Type: A2A
+Payment Date & Time: Aug 16, 2026, 6:35 PM
+Reference No. (VAT Invoice No): FT262281DKN0
+Reason / Type of service: MB Transfer
+Transferred Amount: 250.00 ETB
+Service Charge: 0.50 ETB
+VAT (15%): 0.08 ETB
+Disaster Recovery (5%): 0.03 ETB
+Total amount debited from customer's account: 250.61 ETB
+`;
+
+const pdfRulesParsed = parseReceiptWithBankRules(pdfReceiptText, "cbe");
+
+assert(pdfRulesParsed.transactionId === "FT262281DKN0", `PDF TxId extracted: "${pdfRulesParsed.transactionId}" (Expected: FT262281DKN0)`);
+assert(pdfRulesParsed.amount === 250, `PDF Transferred Amount: ${pdfRulesParsed.amount} (Expected: 250)`);
+assert(Math.abs((pdfRulesParsed.fees ?? 0) - 0.61) < 0.01, `PDF Total Fees: ${pdfRulesParsed.fees} (Expected: 0.61)`);
+assert(pdfRulesParsed.totalAmount === 250.61, `PDF Total Amount Debited: ${pdfRulesParsed.totalAmount} (Expected: 250.61)`);
+assert(pdfRulesParsed.senderName === "Amanuel Andemo Angello", `PDF Payer Name: "${pdfRulesParsed.senderName}" (Expected: Amanuel Andemo Angello)`);
+assert(pdfRulesParsed.senderAccount === "1****8096", `PDF Sender Account: "${pdfRulesParsed.senderAccount}" (Expected: 1****8096)`);
+assert(pdfRulesParsed.receiverName === "Revel Trading Plc", `PDF Receiver Name: "${pdfRulesParsed.receiverName}" (Expected: Revel Trading Plc)`);
+assert(pdfRulesParsed.receiverAccount === "1****3588", `PDF Receiver Account: "${pdfRulesParsed.receiverAccount}" (Expected: 1****3588)`);
+
+const pdfCrossVal = crossValidate(
+  {
+    status: "APPROVED",
+    confidence: 99,
+    transactionId: pdfRulesParsed.transactionId,
+    senderName: pdfRulesParsed.senderName,
+    receiverName: pdfRulesParsed.receiverName,
+    amount: pdfRulesParsed.amount,
+    currency: "ETB",
+    date: pdfRulesParsed.date,
+    time: pdfRulesParsed.time,
+    paymentMethod: pdfRulesParsed.paymentMethod,
+    reasons: [],
+    warnings: [],
+  },
+  {
+    isValid: true,
+    providerId: "cbe",
+    transactionId: "FT262281DKN0",
+    amount: 250,
+    totalAmount: 250.61,
+    fees: 0.61,
+    senderName: "Amanuel Andemo Angello",
+    senderAccount: "1****8096",
+    receiverName: "Revel Trading Plc",
+    receiverAccount: "1****3588",
+    date: "2026-08-16T18:35:00.000Z",
+    status: "COMPLETED",
+  }
+);
+
+assert(pdfCrossVal.overallMatch === "MATCH", `PDF Cross-Validation: ${pdfCrossVal.overallMatch}`);
+assert(pdfCrossVal.crossValidationScore >= 99, `PDF Verification Accuracy: ${pdfCrossVal.crossValidationScore}% (Target: >=99%)`);
+
+// Verify all field matches carry non-null AI and URL verified values
+for (const match of pdfCrossVal.fieldMatches) {
+  assert(match.aiValue !== null && match.aiValue !== undefined && match.aiValue !== "", `Field ${match.field} AI value populated: ${match.aiValue}`);
+  assert(match.scrapedValue !== null && match.scrapedValue !== undefined && match.scrapedValue !== "", `Field ${match.field} URL value populated: ${match.scrapedValue}`);
+  assert(match.matches === true, `Field ${match.field} matches: ${match.matches}`);
+}
+
+// ---------------------------------------------------------
+// Test Suite 7: CBE Inter Bank Transfer Format (Image 2 Web Portal)
+// ---------------------------------------------------------
+console.log("\n📌 Test Suite 7: CBE Inter-Bank Account Transfer Parsing");
+
+const interBankReceiptText = `
+Commercial Bank of Ethiopia
+Customer Receipt
+Status: SUCCESS
+Company Address & Other Information
+Country: Ethiopia
+City: Addis Ababa
+Address: Ras Desta Damtew St, 01, Kirkos
+Postal code: 255
+SWIFT Code: CBETETAA
+Email: info@cbe.com.et
+Tel: +251-551-50-04
+Fax: +251-551-45-22
+Tin: 0000006966
+VAT Receipt No: FT26228MBXTY
+VAT Registration No: 011140
+VAT Registration Date: 01/01/2003
+Payment / Transaction Informations
+Payer: Amanuel Andemo Angello
+Account: 1****8096
+Receiver: Inter Bank Account To Account Paya
+Account: E****0162
+Payment Type: BANK_TRANSFER
+Payment Date & Time: Aug 16, 2026, 11:34 AM
+Reference No. (VAT Invoice No): FT26228MBXTY
+Reason / Type of service: 5795666726011
+Transferred Amount: 400.00 ETB
+Service Charge: 6.52 ETB
+VAT (15%): 0.99 ETB
+Disaster Recovery (5%): 0.33 ETB
+Total amount debited from customer's account: 407.84 ETB
+Amount in Word: Four Hundred Seven ETB and Eighty Four cents
+`;
+
+const ibParsed = parseReceiptWithBankRules(interBankReceiptText, "cbe");
+
+assert(ibParsed.transactionId === "FT26228MBXTY", `InterBank TxId extracted: "${ibParsed.transactionId}" (Expected: FT26228MBXTY)`);
+assert(ibParsed.amount === 400, `InterBank Transferred Amount: ${ibParsed.amount} (Expected: 400)`);
+assert(Math.abs((ibParsed.fees ?? 0) - 7.84) < 0.01, `InterBank Total Fees: ${ibParsed.fees} (Expected: 7.84)`);
+assert(ibParsed.totalAmount === 407.84, `InterBank Total Amount Debited: ${ibParsed.totalAmount} (Expected: 407.84)`);
+assert(ibParsed.senderName === "Amanuel Andemo Angello", `InterBank Payer Name: "${ibParsed.senderName}" (Expected: Amanuel Andemo Angello)`);
+assert(ibParsed.senderAccount === "1****8096", `InterBank Sender Account: "${ibParsed.senderAccount}" (Expected: 1****8096)`);
+assert(ibParsed.receiverName === "Inter Bank Account To Account Paya", `InterBank Receiver Name: "${ibParsed.receiverName}" (Expected: Inter Bank Account To Account Paya)`);
+assert(ibParsed.receiverAccount === "E****0162", `InterBank Receiver Account: "${ibParsed.receiverAccount}" (Expected: E****0162)`);
+
 console.log("\n=========================================================");
 console.log(`📊 Test Execution Completed: ${passed} Passed, ${failed} Failed`);
 console.log("=========================================================");
 
 if (failed > 0) {
   process.exit(1);
+} else {
+  process.exit(0);
 }
+
