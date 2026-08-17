@@ -36,10 +36,10 @@ export function VerificationCard({ record }: Props) {
       <View style={styles.content}>
         <View style={styles.row}>
           <Text style={[styles.sender, { color: colors.foreground }]} numberOfLines={1}>
-            {record.senderName}
+            {record.senderName} {record.receiverName !== "Unknown" ? `➔ ${record.receiverName}` : ""}
           </Text>
           <Text style={[styles.amount, { color: colors.foreground }]}>
-            ${record.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            {record.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })} {record.currency || "ETB"}
           </Text>
         </View>
         <View style={styles.row}>

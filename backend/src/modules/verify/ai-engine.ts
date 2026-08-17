@@ -493,9 +493,34 @@ function analyzeWithRules(imagePath: string): ReceiptAnalysisResult {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main analysis function
-// ─────────────────────────────────────────────────────────────────────────────
+function mergeWithLocalRules(aiRes: ReceiptAnalysisResult, localRes: any): ReceiptAnalysisResult {
+  if (!aiRes) return aiRes;
+  if (localRes.senderName && (!aiRes.senderName || /unknown|n\/a|^$/i.test(aiRes.senderName))) {
+    aiRes.senderName = localRes.senderName;
+  }
+  if (localRes.receiverName && (!aiRes.receiverName || /unknown|n\/a|^$/i.test(aiRes.receiverName))) {
+    aiRes.receiverName = localRes.receiverName;
+  }
+  if (localRes.senderAccount && !aiRes.senderAccount) {
+    aiRes.senderAccount = localRes.senderAccount;
+  }
+  if (localRes.receiverAccount && !aiRes.receiverAccount) {
+    aiRes.receiverAccount = localRes.receiverAccount;
+  }
+  if (localRes.transactionId && !aiRes.transactionId) {
+    aiRes.transactionId = localRes.transactionId;
+  }
+  if (localRes.amount && !aiRes.amount) {
+    aiRes.amount = localRes.amount;
+  }
+  if (localRes.fees && !aiRes.fees) {
+    aiRes.fees = localRes.fees;
+  }
+  if (localRes.totalAmount && !aiRes.totalAmount) {
+    aiRes.totalAmount = localRes.totalAmount;
+  }
+  return aiRes;
+}
 
 export async function analyzeReceiptImage(
   imagePath: string,
@@ -540,9 +565,6 @@ export async function analyzeReceiptImage(
       const bank = detectBankFromText(rawText);
       const parsedFields = parseReceiptWithBankRules(rawText, bank);
 
-      // Heuristic OCR check: If we have transactionId + amount with high confidence,
-      // and we are confident in the regex, we can route to Text-Only Gemini first (Tier 1)
-      // which is 60-90% cheaper than Gemini Vision.
       if (parsedFields.confidence >= 70 && ocrConfidence > 75) {
         logger.info(`⚡ High OCR parsing confidence (${parsedFields.confidence}%). Routing to Gemini Lite (Tier 1 Text-Only)...`);
         const liteResult = await analyzeWithGeminiTextOnly(rawText, bank);
@@ -550,7 +572,7 @@ export async function analyzeReceiptImage(
         if (liteResult?.result) {
           logger.info(`✅ Gemini Lite successfully processed receipt (confidence: ${liteResult.result.confidence}%)`);
           liteResult.result.ocrConfidence = ocrConfidence;
-          return liteResult.result;
+          return mergeWithLocalRules(liteResult.result, parsedFields);
         }
         logger.warn("⚠️ Gemini Lite extraction failed/null. Falling back to Gemini Vision.");
       }
@@ -561,7 +583,7 @@ export async function analyzeReceiptImage(
       if (visionResult.result) {
         visionResult.result.rawExtractedText = rawText;
         visionResult.result.ocrConfidence = ocrConfidence;
-        return visionResult.result;
+        return mergeWithLocalRules(visionResult.result, parsedFields);
       }
       
       // Local OCR parsing fallback if Gemini fails completely
