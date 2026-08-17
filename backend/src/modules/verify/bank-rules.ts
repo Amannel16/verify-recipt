@@ -69,11 +69,14 @@ const BANK_TEMPLATES: BankTemplate[] = [
  * Normalizes text extracted from names (removing common prefix noise/labels).
  */
 export function cleanName(val: string): string {
-  return val
-    .replace(/[^a-zA-Z\s.-]/g, "") // Keep only letters, spaces, dots, dashes
-    .replace(/\b(?:account|no|number|date|time|ref|txn|method|status|success|fee|birr|etb|to|from|by|payer|receiver|payee|credited|party|beneficiary|holder|transferred|amount)\b.*/gi, "") // Chop off trailing keywords
+  if (!val) return "";
+  let s = val
+    .replace(/[^a-zA-Z0-9\s.&'-]/g, " ")
+    .replace(/(?:\s+|\s*:\s*)(?:Account|No|Number|Date|Time|Ref|Txn|Method|Status|Success|Fee|Birr|ETB|Payer|Receiver|Payee|Amount)\s*:.*/gi, "")
+    .replace(/\s+(?:Account|Date|Time|Ref|Txn|Status|Fee|Birr|ETB)$/gi, "")
     .replace(/\s+/g, " ")
     .trim();
+  return s;
 }
 
 /**
@@ -378,13 +381,13 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     if (feeSum > 0) fields.fees = feeSum;
 
     // --- STRUCTURAL PATTERN MATCH 3: CBE Official PDF / Web Portal Receipt ---
-    const pdfPayerMatch = text.match(/Payer[:\s]+([A-Za-z\s.-]+?)(?=\s+Account[:\s]+[A-Za-z0-9*]{4,18}|\s+(?:Receiver|Payment|Reason|Transferred|Service|VAT|Disaster|Total)|$)/i);
-    const pdfPayerAccMatch = text.match(/Payer[:\s]+[A-Za-z\s.-]+?\s+Account[:\s]+([A-Za-z0-9*]{4,18})/i);
+    const pdfPayerMatch = text.match(/Payer[:\s]+([A-Za-z\s.-]+?)(?=\s+Account:\s*[A-Za-z0-9*]{4,18}|\s+(?:Receiver|Payment|Reason|Transferred|Service|VAT|Disaster|Total)|$)/i);
+    const pdfPayerAccMatch = text.match(/Payer[:\s]+[A-Za-z\s.-]+?\s+Account:\s*([A-Za-z0-9*]{4,18})/i);
     if (pdfPayerMatch && !fields.senderName) fields.senderName = cleanName(pdfPayerMatch[1]);
     if (pdfPayerAccMatch) fields.senderAccount = pdfPayerAccMatch[1];
 
-    const pdfReceiverMatch = text.match(/Receiver[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+Account[:\s]+[A-Za-z0-9*]{4,18}|\s+(?:Payment Type|Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total)|$)/i);
-    const pdfReceiverAccMatch = text.match(/Receiver[:\s]+[A-Za-z0-9\s.&'-]+?\s+Account[:\s]+([A-Za-z0-9*]{4,18})/i);
+    const pdfReceiverMatch = text.match(/Receiver[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+Account:\s*[A-Za-z0-9*]{4,18}|\s+(?:Payment Type|Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total)|$)/i);
+    const pdfReceiverAccMatch = text.match(/Receiver[:\s]+[A-Za-z0-9\s.&'-]+?\s+Account:\s*([A-Za-z0-9*]{4,18})/i);
     if (pdfReceiverMatch && !fields.receiverName) fields.receiverName = cleanName(pdfReceiverMatch[1]);
     if (pdfReceiverAccMatch) fields.receiverAccount = pdfReceiverAccMatch[1];
 
