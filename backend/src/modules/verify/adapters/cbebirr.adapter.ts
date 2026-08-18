@@ -96,12 +96,15 @@ export class CbebirrProviderAdapter implements PaymentProviderAdapter {
       
     const senderMatch = text.match(/debited\s+from\s+([A-Za-z\s.-]+?)\s+for/i) ||
       text.match(/Dear\s+([A-Za-z\s.-]+?),?\s+you\s+have/i) ||
-      text.match(/(?:sender|payer|customer name|from|debit account)[\s:;]+([A-Za-z0-9\s.*()-]+?)(?:\n|\r|$)/i);
+      text.match(/(?:customer name|sender name|payer name)[\s:;]+([A-Za-z0-9\s.*()-]+?)(?:\n|\r|$)/i) ||
+      text.match(/(?:sender|payer|from|debit account)[\s:;]+([A-Za-z0-9\s.*()-]+?)(?:\n|\r|$)/i);
       
     const receiverMatch = text.match(/for\s+([A-Za-z\s.-]+?)\s+on\s+\d{1,2}\s+[A-Za-z]{3}/i) ||
       text.match(/to\s+\d{10,16}-([A-Za-z\s.-]+?)\s+on/i) ||
       text.match(/transfer\s+to\s+([A-Za-z\s.-]+?)\s+by/i) ||
-      text.match(/(?:receiver|payee|to|receiver name|credit account)[\s:;]+([A-Za-z0-9\s.*()-]+?)(?:\n|\r|$)/i);
+      text.match(/(?:receiver name|payee name)[\s:;]+([A-Za-z0-9\s.*()-]+?)(?:\n|\r|$)/i) ||
+      text.match(/(?:receiver|payee|to)[\s:;]+([A-Za-z0-9\s.*()-]+?)(?:\n|\r|$)/i) ||
+      text.match(/(?:credit account)[\s:;]+([A-Za-z0-9\s.*()-]+?)(?:\n|\r|$)/i);
       
     const dateMatch = text.match(/(?:date|payment date|transaction date)[:\s]*([\d\/\-:\sA-Za-z]+?)(?:\n|\r|$)/i) ||
       text.match(/on\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})/i) ||
