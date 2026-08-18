@@ -91,21 +91,30 @@ export async function analyzeReceipt(
   const rawTxId = (data.transactionId as string) || normTx?.transactionId || scraped?.transactionId;
   const cleanTxId = (rawTxId && !rawTxId.startsWith("v2-")) ? rawTxId : (normTx?.transactionId || "N/A");
 
-  let senderName = (data.senderName as string) || normTx?.sender?.name || scraped?.senderName || scraped?.sender?.name;
-  if (!senderName || senderName === "Unknown" || senderName === "—") {
-    const sMatch = crossVal?.fieldMatches?.find((f: any) => f.field === "Sender Name");
-    if (sMatch?.scrapedValue && sMatch.scrapedValue !== "—") senderName = sMatch.scrapedValue as string;
-    else if (sMatch?.aiValue && sMatch.aiValue !== "—") senderName = sMatch.aiValue as string;
+  function cleanValue(val: unknown): string | null {
+    if (typeof val !== "string") return null;
+    const trimmed = val.trim();
+    if (!trimmed || /^(?:unknown|n\/a|—|-)$/i.test(trimmed)) return null;
+    return trimmed;
   }
-  if (!senderName || senderName === "Unknown") senderName = "Unknown";
 
-  let receiverName = (data.receiverName as string) || normTx?.receiver?.name || scraped?.receiverName || scraped?.receiver?.name;
-  if (!receiverName || receiverName === "Unknown" || receiverName === "—") {
-    const rMatch = crossVal?.fieldMatches?.find((f: any) => f.field === "Receiver Name");
-    if (rMatch?.scrapedValue && rMatch.scrapedValue !== "—") receiverName = rMatch.scrapedValue as string;
-    else if (rMatch?.aiValue && rMatch.aiValue !== "—") receiverName = rMatch.aiValue as string;
-  }
-  if (!receiverName || receiverName === "Unknown") receiverName = "Unknown";
+  const senderName =
+    cleanValue(data.senderName) ||
+    cleanValue(normTx?.sender?.name) ||
+    cleanValue(scraped?.senderName) ||
+    cleanValue(scraped?.sender?.name) ||
+    cleanValue(crossVal?.fieldMatches?.find((f: any) => f.field === "Sender Name")?.scrapedValue) ||
+    cleanValue(crossVal?.fieldMatches?.find((f: any) => f.field === "Sender Name")?.aiValue) ||
+    "Unknown";
+
+  const receiverName =
+    cleanValue(data.receiverName) ||
+    cleanValue(normTx?.receiver?.name) ||
+    cleanValue(scraped?.receiverName) ||
+    cleanValue(scraped?.receiver?.name) ||
+    cleanValue(crossVal?.fieldMatches?.find((f: any) => f.field === "Receiver Name")?.scrapedValue) ||
+    cleanValue(crossVal?.fieldMatches?.find((f: any) => f.field === "Receiver Name")?.aiValue) ||
+    "Unknown";
 
   const rawReasons = Array.isArray(data.reasons) ? data.reasons : [];
   const rawWarnings = Array.isArray(data.warnings) ? data.warnings : [];
