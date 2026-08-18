@@ -282,22 +282,22 @@ async function scrapeCbeReceipt(url: string, providerId: string, inputId: string
   };
 
   // Extract Payer & Sender Account
-  const payerName = extractField(/Payer[:\s]+([A-Za-z\s.-]+?)(?=\s+Account[:\s]*[A-Za-z0-9*]{4,18}|\s+(?:Receiver|Payment|Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total|Amount)|$)/i) ||
+  const payerName = extractField(/Payer[:\s]+([A-Za-z\s.-]+?)(?=\s+Account[:\s]+(?:[A-Za-z0-9]*\*{2,}[A-Za-z0-9]+|[0-9]{8,18})|\s+(?:Receiver|Payment|Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total|Amount)|$)/i) ||
                     extractField(/Customer Name[:\s]+([A-Za-z\s.-]+?)(?=\s+(?:Region|City|Sub City|Wereda|VAT|TIN|Branch|Payment|Payer|Amount)|$)/i) ||
                     extractFromHtml("Payer") ||
                     extractFromHtml("Customer Name");
   
-  const senderAccount = extractField(/Payer[:\s]+[A-Za-z\s.-]+?\s+Account[:\s]*([A-Za-z0-9*]{4,18})/i) ||
+  const senderAccount = extractField(/Payer[:\s]+[A-Za-z\s.-]+?\s+Account[:\s]+([A-Za-z0-9*]{4,18})/i) ||
                         extractField(/Account[:\s]+([15][0-9*]{4,15})/i);
 
   // Extract Receiver & Receiver Account
-  const receiverName = extractField(/Receiver[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+Account[:\s]*[A-Za-z0-9*]{4,18}|\s+(?:Payment Type|Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total|Amount)|$)/i) ||
+  const receiverName = extractField(/Receiver[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+Account:\s*[A-Za-z0-9*]{4,18}|\s+(?:Payment Type|Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total|Amount)|$)/i) ||
                        extractFromHtml("Receiver") ||
                        extractFromHtml("Payee") ||
                        extractFromHtml("Beneficiary") ||
-                       extractField(/(?:Receiver|Payee|Beneficiary|Credited Party|To)[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+Account[:\s]*[A-Za-z0-9*]{4,18}|\s+(?:Payment|Reference|Date|Total)|$)/i);
-  const receiverAccount = extractField(/Receiver[:\s]+[A-Za-z0-9\s.&'-]+?\s+Account[:\s]*([A-Za-z0-9*]{4,18})/i) ||
-                          extractField(/(?:Receiver|Payee|Beneficiary)\s+Account[:\s]*([A-Za-z0-9*]{4,18})/i);
+                       extractField(/(?:Receiver|Payee|Beneficiary|Credited Party|To)[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+Account[:\s]+(?:[A-Za-z0-9]*\*{2,}[A-Za-z0-9]+|[0-9]{8,18})|\s+(?:Payment|Reference|Date|Total)|$)/i);
+  const receiverAccount = extractField(/Receiver[:\s]+[\s\S]+?\s+Account:\s*([A-Za-z0-9*]{4,18})/i) ||
+                          extractField(/(?:Receiver|Payee|Beneficiary)\s+Account[:\s]+([A-Za-z0-9*]{4,18})/i);
 
   // Extract Payment Type & Reason
   const paymentType = extractField(/Payment Type[:\s]+([A-Z0-9\s_-]+?)(?=\s+(?:Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total)|$)/i);
