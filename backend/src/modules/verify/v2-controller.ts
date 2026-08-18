@@ -127,7 +127,7 @@ export async function processV2Verification(
   recordStage("PROVIDER_DETECTION", "SUCCESS", Date.now() - tFp, `Provider: ${detectedProviderId}`);
 
   // 5. Official Portal Verification
-  if (receiptUrl && domainValidationResult?.isTrusted && !quickMode) {
+  if (receiptUrl && domainValidationResult?.isTrusted) {
     const tOff = Date.now();
     const providerEntry = providerRegistry.getProvider(detectedProviderId);
     if (providerEntry?.adapter) {

@@ -97,8 +97,17 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
     if (drMatch) feeSum += parseFloat(drMatch[1].replace(/,/g, ""));
 
     const senderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)\s+You\s+have/i);
-    const senderAccMatch = text.match(/from\s+account\s+([0-9*]{8,18})/i);
-    const receiverMatch = text.match(/to\s+(?:account\s+)?([0-9*]{8,18})\s*\(([^)]+)\)/i);
+    const senderAccMatch = text.match(/from\s+account\s+([A-Za-z0-9*]{4,18})/i);
+    const receiverMatch = text.match(/to\s+(?:account\s+)?([A-Za-z0-9*]{4,18})\s*\(([^)]+)\)/i) ||
+                          text.match(/for\s+(.+?)\s+with\s+(?:.+?\s+)?account/i);
+
+    let recName = receiverMatch?.[2]?.trim() || receiverMatch?.[1]?.trim();
+    let recAcc = receiverMatch?.[2] ? receiverMatch[1] : undefined;
+
+    if (!recName) {
+      const fallbackRec = text.match(/(?:to|receiver|payee|beneficiary)[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+account|\s*$)/i);
+      if (fallbackRec?.[1]) recName = fallbackRec[1].trim();
+    }
 
     return {
       provider: "cbe",
@@ -111,7 +120,7 @@ export class CbeProviderAdapter implements PaymentProviderAdapter {
       fee: feeSum > 0 ? feeSum : undefined,
       currency: "ETB",
       sender: senderMatch ? { name: senderMatch[1].trim(), account: senderAccMatch ? senderAccMatch[1] : undefined } : undefined,
-      receiver: receiverMatch ? { name: receiverMatch[2].trim(), account: receiverMatch[1] } : undefined,
+      receiver: recName ? { name: recName, account: recAcc } : undefined,
       extractionConfidence: 0.95,
     };
   }
