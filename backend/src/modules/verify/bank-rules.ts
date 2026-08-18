@@ -71,6 +71,8 @@ const BANK_TEMPLATES: BankTemplate[] = [
 export function cleanName(val: string): string {
   if (!val) return "";
   let s = val
+    .replace(/\s*[-_]?ETB[-_]?\s*/gi, " ")
+    .replace(/\s*[-_]?Birr[-_]?\s*/gi, " ")
     .replace(/[^a-zA-Z0-9\s.&'-]/g, " ")
     .replace(/(?:\s+|\s*:\s*)(?:Account|No|Number|Date|Time|Ref|Txn|Method|Status|Success|Fee|Birr|ETB|Payer|Receiver|Payee|Amount)\s*:.*/gi, "")
     .replace(/\s+(?:Account|Date|Time|Ref|Txn|Status|Fee|Birr|ETB)$/gi, "")
@@ -415,8 +417,9 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
 
     if (!fields.receiverName) {
       const smsReceiverMatch = text.match(/to\s+(?:account\s+)?([0-9*]{8,18})\s*\(([^)]+)\)/i) ||
+        text.match(/for\s+(.+?)(?=\s+on|\s+with|\s+account|\s+wallet|\s+ref|\s+transaction|\s*$)/i) ||
         text.match(/for\s+([A-Za-z\s.-]+?)\s+with/i) ||
-        text.match(/(?:to|receiver|payee|beneficiary|credited party)[:\s]+([A-Za-z\s.-]+)/i);
+        text.match(/(?:to|receiver|payee|beneficiary|credited party)[:\s]+([A-Za-z0-9\s.&'-]+)/i);
       if (smsReceiverMatch?.[2]) {
         fields.receiverName = cleanName(smsReceiverMatch[2]);
         if (!fields.receiverAccount) fields.receiverAccount = smsReceiverMatch[1];

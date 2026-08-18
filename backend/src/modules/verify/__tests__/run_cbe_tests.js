@@ -305,6 +305,25 @@ assert(walletParsed.senderName === "Amanuel Andemo Angello", `Wallet Sender Name
 assert(walletParsed.senderAccount === "1********8096", `Wallet Sender Account: "${walletParsed.senderAccount}" (Expected: 1********8096)`);
 assert(walletParsed.receiverName === "Amanuel Andemo Angello's M-pessa wallet", `Wallet Receiver Name: "${walletParsed.receiverName}" (Expected: Amanuel Andemo Angello's M-pessa wallet)`);
 
+console.log("\n📌 Test Suite 9: CBE Mobile App Screen FT262281DKNO (Revel Trading Plc)");
+
+const screenshot250Text = `
+Transaction Completed Successfully!
+Transaction Summary
+You have successfully transferred 250 ETB from Amanuel Andemo Angello-ETB-1********8096 for Revel Trading Plc on Aug 16, 2026 07:35 PM with Transaction ID: FT262281DKNO.
+Total Amount Debited: 250.61 ETB with Service Charge of ETB0.50, VAT (15%) of ETB0.08 and Disaster Recovery (5%) of ETB0.03.
+Commercial Bank of Ethiopia
+The bank you can always rely on!
+`;
+
+const screenshot250Parsed = parseReceiptWithBankRules(screenshot250Text, "cbe");
+
+assert(screenshot250Parsed.transactionId === "FT262281DKNO", `Screen250 TxId: "${screenshot250Parsed.transactionId}" (Expected: FT262281DKNO)`);
+assert(screenshot250Parsed.amount === 250, `Screen250 Amount: ${screenshot250Parsed.amount} (Expected: 250)`);
+assert(screenshot250Parsed.senderName === "Amanuel Andemo Angello", `Screen250 Sender Name: "${screenshot250Parsed.senderName}" (Expected: Amanuel Andemo Angello - NO ETB suffix)`);
+assert(screenshot250Parsed.senderAccount === "1********8096", `Screen250 Sender Account: "${screenshot250Parsed.senderAccount}" (Expected: 1********8096)`);
+assert(screenshot250Parsed.receiverName === "Revel Trading Plc", `Screen250 Receiver Name: "${screenshot250Parsed.receiverName}" (Expected: Revel Trading Plc)`);
+
 console.log("\n=========================================================");
 console.log(`📊 Test Execution Completed: ${passed} Passed, ${failed} Failed`);
 console.log("=========================================================\n");
