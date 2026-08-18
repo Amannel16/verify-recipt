@@ -324,6 +324,28 @@ assert(screenshot250Parsed.senderName === "Amanuel Andemo Angello", `Screen250 S
 assert(screenshot250Parsed.senderAccount === "1********8096", `Screen250 Sender Account: "${screenshot250Parsed.senderAccount}" (Expected: 1********8096)`);
 assert(screenshot250Parsed.receiverName === "Revel Trading Plc", `Screen250 Receiver Name: "${screenshot250Parsed.receiverName}" (Expected: Revel Trading Plc)`);
 
+console.log("\n📌 Test Suite 10: Telebirr App Screen with Sponsored Ad Banner");
+
+const telebirrAdText = `
+Successful
+-412.00 ETB
+Transaction Time 26/08/15 14:48:55
+Transaction Type Transfer Money
+Paid To Nitsuh
+Transaction Number 260815144855789123
+Zemen Bank
+Zemen Bank Logo Banner Advertisement
+Finished
+`;
+
+const telebirrProvider = detectBankFromText(telebirrAdText);
+assert(telebirrProvider === "telebirr", `Telebirr Provider Detected: "${telebirrProvider}" (Expected: telebirr despite Zemen Bank ad)`);
+
+const telebirrParsed = parseReceiptWithBankRules(telebirrAdText, telebirrProvider);
+assert(telebirrParsed.transactionId === "260815144855789123", `Telebirr TxId: "${telebirrParsed.transactionId}" (Expected: 260815144855789123)`);
+assert(telebirrParsed.amount === 412, `Telebirr Amount: ${telebirrParsed.amount} (Expected: 412)`);
+assert(telebirrParsed.receiverName === "Nitsuh", `Telebirr Receiver Name: "${telebirrParsed.receiverName}" (Expected: Nitsuh - NOT Nitsuh Transaction Number)`);
+
 console.log("\n=========================================================");
 console.log(`📊 Test Execution Completed: ${passed} Passed, ${failed} Failed`);
 console.log("=========================================================\n");

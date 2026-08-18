@@ -131,12 +131,13 @@ export function detectBankFromText(text: string): string {
     return "cbe";
   }
 
-  // 2. Telebirr special signature layout or SMS (e.g., sender 127)
+  // 2. Telebirr special signature layout, SMS, or app completion screen
   if (
     lowerText.includes("telebirr") || 
     lowerText.includes("ethiotelecom") ||
     lowerText.includes("ethio telecom") ||
-    lowerText.includes("transactioninfo.ethiotelecom.et")
+    lowerText.includes("transactioninfo.ethiotelecom.et") ||
+    (lowerText.includes("successful") && (lowerText.includes("transaction time") || lowerText.includes("transaction number") || lowerText.includes("transaction type") || lowerText.includes("paid to")))
   ) {
     logger.info("🏦 Detected bank provider: telebirr (via signature layout)");
     return "telebirr";
@@ -436,17 +437,19 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
   } else if (provider === "telebirr") {
     // 2. telebirr
     const txMatch = 
-      text.match(/(?:transaction number|transaction no|txn ref|ref no|txn id|transaction id)[:\s]*([A-Z0-9]{6,25})/i) ||
+      text.match(/(?:transaction\s+(?:number|id|no|ref|reference)|txn\s+(?:id|no|ref))[:\s]*([A-Z0-9]{8,30})/i) ||
       text.match(/transaction\s+number\s+is\s+([A-Z0-9]{6,25})/i) ||
       text.match(/\/receipt\/([A-Z0-9]+)/i) ||
+      text.match(/\b(2[0-9]{13,22})\b/) ||
       text.match(/\b(DGO[A-Z0-9]{6,15})\b/i) ||
       text.match(/\b(DH[A-Z0-9]{6,15})\b/i) ||
       text.match(/\b(TX[A-Z0-9]{6,15})\b/i);
     if (txMatch) fields.transactionId = (txMatch[1] || txMatch[0]).trim().toUpperCase();
 
-    const signMatch = text.match(/(?:-|\+)?\s*([\d,]+\.\d{2})\s*\(?etb\)?/i);
+    const signMatch = text.match(/(?:-|\+)?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:ETB|Birr|Br\.?)/i) ||
+      text.match(/(?:-|\+)?\s*([\d,]+\.\d{2})/i);
     const smsTransferredMatch = text.match(/transferred\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)\s+to/i);
-    const amtMatch = text.match(/(?:total paid amount|amount|paid amount|net amount)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const amtMatch = text.match(/(?:total paid amount|amount|paid amount|net amount|transferred amount)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
     
     if (smsTransferredMatch) {
       fields.amount = parseFloat(smsTransferredMatch[1].replace(/,/g, ""));
@@ -465,22 +468,31 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     if (feeSum > 0) fields.fees = feeSum;
 
     // Receiver & Sender Name
-    const smsReceiverMatch = text.match(/to\s+([A-Za-z0-9\s.*()]+?)\s+on\s+\d{1,2}[/-]\d{1,2}[/-]\d{4}/i);
-    const toMatch = text.match(/(?:transaction to|credited party name|to|receiver|payee)[:\s]+([A-Za-z\s.-]+)/i);
+    const paidToMatch = text.match(/(?:paid to|recipient|receiver|to|payee|credited party name)[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+(?:Transaction|Time|Type|ID|No|Number|Date|Amount|Fee|Status|\d{8,})|[\r\n]|$)/i);
+    const smsReceiverMatch = text.match(/to\s+([A-Za-z0-9\s.*()]+?)\s+on\s+\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/i);
     
-    if (smsReceiverMatch?.[1]) {
+    if (paidToMatch?.[1]) {
+      fields.receiverName = cleanName(paidToMatch[1]);
+    } else if (smsReceiverMatch?.[1]) {
       fields.receiverName = cleanName(smsReceiverMatch[1].replace(/\(\d+.*?\)/, ""));
-    } else if (toMatch?.[1]) {
-      fields.receiverName = cleanName(toMatch[1]);
     }
 
     const smsSenderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)(?:\s+You\s+have|\s+transferred|\s*,|\s*\n)/i);
-    const senderMatch = text.match(/(?:payer name|from|sender)[:\s]+([A-Za-z\s.-]+)/i);
+    const senderMatch = text.match(/(?:payer name|paid by|from|sender)[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+(?:Transaction|Time|Type|ID|No|Number|Date|Amount|Fee|Status|\d{8,})|[\r\n]|$)/i);
     
     if (smsSenderMatch?.[1]) {
       fields.senderName = cleanName(smsSenderMatch[1]);
     } else if (senderMatch?.[1]) {
       fields.senderName = cleanName(senderMatch[1]);
+    }
+
+    // Telebirr App Screen Date & Time Extraction
+    const dateTimeMatch = text.match(/(?:transaction time|date & time|date|time)[:\s]*(\d{2,4}[/-]\d{1,2}[/-]\d{1,4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)/i) ||
+      text.match(/(\d{2}[/-]\d{2}[/-]\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?)/);
+    if (dateTimeMatch?.[1]) {
+      const parts = dateTimeMatch[1].trim().split(/\s+/);
+      if (parts[0]) fields.date = parts[0];
+      if (parts[1]) fields.time = parts.slice(1).join(" ");
     }
 
   } else if (provider === "dashen") {
