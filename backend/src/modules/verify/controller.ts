@@ -168,6 +168,18 @@ export async function verifyReceipt(
       logger.info(
         `📱 Awash receipt screenshot detected — auto-constructed verification URL: ${receiptUrl}`,
       );
+    } else if (!receiptUrl && detectedProvider === "cbe" && aiResult.transactionId) {
+      const rawTx = aiResult.transactionId.trim();
+      if (rawTx.startsWith("v2-")) {
+        receiptUrl = `https://mbreciept.cbe.com.et/${rawTx}`;
+      } else if (rawTx.startsWith("FT")) {
+        receiptUrl = `https://mbreciept.cbe.com.et/receipt/${rawTx}`;
+      }
+      if (receiptUrl) {
+        logger.info(
+          `📱 CBE receipt screenshot detected — auto-constructed verification URL: ${receiptUrl}`,
+        );
+      }
     }
 
     // ── Step 3.5: DOMAIN VALIDATION (Security Gate) ──
@@ -602,6 +614,29 @@ export async function getHistory(req: Request, res: Response): Promise<void> {
     for (const verification of verifications) {
       if (verification.imageUrl) {
         verification.imageUrl = await getUrl(verification.imageUrl);
+      }
+
+      const scraped = verification.scrapedData as any;
+      const crossVal = verification.crossValidation as any;
+
+      if (!verification.receiverName || /unknown|n\/a|^$/i.test(verification.receiverName)) {
+        const recName =
+          scraped?.receiverName ||
+          crossVal?.fieldMatches?.find((f: any) => f.field === "Receiver Name")?.scrapedValue ||
+          crossVal?.fieldMatches?.find((f: any) => f.field === "Receiver Name")?.aiValue;
+        if (recName && typeof recName === "string" && recName !== "—" && !/unknown|n\/a|^$/i.test(recName)) {
+          verification.receiverName = recName;
+        }
+      }
+
+      if (!verification.senderName || /unknown|n\/a|^$/i.test(verification.senderName)) {
+        const sndName =
+          scraped?.senderName ||
+          crossVal?.fieldMatches?.find((f: any) => f.field === "Sender Name")?.scrapedValue ||
+          crossVal?.fieldMatches?.find((f: any) => f.field === "Sender Name")?.aiValue;
+        if (sndName && typeof sndName === "string" && sndName !== "—" && !/unknown|n\/a|^$/i.test(sndName)) {
+          verification.senderName = sndName;
+        }
       }
     }
 

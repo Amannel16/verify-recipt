@@ -126,6 +126,20 @@ export async function processV2Verification(
   normalizedTx.provider = detectedProviderId;
   recordStage("PROVIDER_DETECTION", "SUCCESS", Date.now() - tFp, `Provider: ${detectedProviderId}`);
 
+  if (!receiptUrl && detectedProviderId === "cbe" && normalizedTx.transactionId) {
+    const rawTx = normalizedTx.transactionId.trim();
+    if (rawTx.startsWith("v2-")) {
+      receiptUrl = `https://mbreciept.cbe.com.et/${rawTx}`;
+    } else if (rawTx.startsWith("FT")) {
+      receiptUrl = `https://mbreciept.cbe.com.et/receipt/${rawTx}`;
+    }
+    if (receiptUrl) {
+      normalizedTx.receiptUrl = receiptUrl;
+      domainValidationResult = validateDomain(receiptUrl, "cbe");
+      logger.info(`📱 CBE screenshot detected — auto-constructed verification URL: ${receiptUrl}`);
+    }
+  }
+
   // 5. Official Portal Verification
   if (receiptUrl && domainValidationResult?.isTrusted) {
     const tOff = Date.now();
