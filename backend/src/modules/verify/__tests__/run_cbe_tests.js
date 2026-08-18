@@ -284,13 +284,33 @@ assert(ibParsed.senderAccount === "1****8096", `InterBank Sender Account: "${ibP
 assert(ibParsed.receiverName === "Inter Bank Account To Account Paya", `InterBank Receiver Name: "${ibParsed.receiverName}" (Expected: Inter Bank Account To Account Paya)`);
 assert(ibParsed.receiverAccount === "E****0162", `InterBank Receiver Account: "${ibParsed.receiverAccount}" (Expected: E****0162)`);
 
+console.log("\n📌 Test Suite 8: CBE Mobile App Wallet / M-Pesa Transfer Screen");
+
+const walletReceiptText = `
+Transaction Completed Successfully!
+Transaction Summary
+You have successfully transferred 100 ETB from Amanuel Andemo Angello-ETB-1********8096 for Amanuel Andemo Angello's M-pessa wallet on Aug 16, 2026 01:39 PM with Transaction ID: FT262285PFLC.
+Total Amount Debited: 112.00 ETB with Service Charge of ETB10.00, VAT (15%) of ETB1.50 and Disaster Recovery (5%) of ETB0.50.
+Commercial Bank of Ethiopia
+The bank you can always rely on!
+`;
+
+const walletParsed = parseReceiptWithBankRules(walletReceiptText, "cbe");
+
+assert(walletParsed.transactionId === "FT262285PFLC", `Wallet TxId extracted: "${walletParsed.transactionId}" (Expected: FT262285PFLC)`);
+assert(walletParsed.amount === 100, `Wallet Transferred Amount: ${walletParsed.amount} (Expected: 100)`);
+assert(walletParsed.totalAmount === 112, `Wallet Total Amount Debited: ${walletParsed.totalAmount} (Expected: 112)`);
+assert(Math.abs((walletParsed.fees ?? 0) - 12.00) < 0.01, `Wallet Total Fees: ${walletParsed.fees} (Expected: 12.00)`);
+assert(walletParsed.senderName === "Amanuel Andemo Angello", `Wallet Sender Name: "${walletParsed.senderName}" (Expected: Amanuel Andemo Angello)`);
+assert(walletParsed.senderAccount === "1********8096", `Wallet Sender Account: "${walletParsed.senderAccount}" (Expected: 1********8096)`);
+assert(walletParsed.receiverName === "Amanuel Andemo Angello's M-pessa wallet", `Wallet Receiver Name: "${walletParsed.receiverName}" (Expected: Amanuel Andemo Angello's M-pessa wallet)`);
+
 console.log("\n=========================================================");
 console.log(`📊 Test Execution Completed: ${passed} Passed, ${failed} Failed`);
-console.log("=========================================================");
+console.log("=========================================================\n");
 
 if (failed > 0) {
   process.exit(1);
 } else {
   process.exit(0);
 }
-

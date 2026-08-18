@@ -325,6 +325,19 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
       }
     }
 
+    // --- STRUCTURAL PATTERN MATCH 1B: CBE Mobile App Wallet / M-Pesa Transfer ---
+    // "You have successfully transferred 100 ETB from Amanuel Andemo Angello-ETB-1********8096 for Amanuel Andemo Angello's M-pessa wallet on Aug 16, 2026 01:39 PM with Transaction ID: FT262285PFLC."
+    const appWalletMatch = text.match(
+      /transferred\s*([\d,]+(?:\.\d{1,2})?)\s*(?:ETB|Birr|Br\.?)?\s+from\s+([A-Za-z\s.-]+?)(?:-ETB-|-Birr-|-ETB\b|-account\s*|\s+account\s*)([A-Za-z0-9*]{4,18})\s+for\s+(.+?)(?=\s+on|\s+with|\s*$)/i
+    );
+
+    if (appWalletMatch) {
+      if (!fields.amount) fields.amount = parseFloat(appWalletMatch[1].replace(/,/g, ""));
+      if (!fields.senderName) fields.senderName = cleanName(appWalletMatch[2]);
+      if (!fields.senderAccount) fields.senderAccount = appWalletMatch[3];
+      if (!fields.receiverName) fields.receiverName = cleanName(appWalletMatch[4]);
+    }
+
     // --- STRUCTURAL PATTERN MATCH 2: CBE Mobile Banking SMS Message (Image 1) ---
     // "Dear Amanuel Andemo Angello You have successfully transferred ETB1000.00 from account 1********8096 to account 1********2413 (Eyerusalem Tadesse Sharew)."
     const smsSummaryMatch = text.match(
@@ -381,20 +394,22 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     if (feeSum > 0) fields.fees = feeSum;
 
     // --- STRUCTURAL PATTERN MATCH 3: CBE Official PDF / Web Portal Receipt ---
-    const pdfPayerMatch = text.match(/Payer[:\s]+([A-Za-z\s.-]+?)(?=\s+Account:\s*[A-Za-z0-9*]{4,18}|\s+(?:Receiver|Payment|Reason|Transferred|Service|VAT|Disaster|Total)|$)/i);
-    const pdfPayerAccMatch = text.match(/Payer[:\s]+[A-Za-z\s.-]+?\s+Account:\s*([A-Za-z0-9*]{4,18})/i);
+    const pdfPayerMatch = text.match(/(?:Payer|Customer Name)[:\s]+([A-Za-z\s.-]+?)(?=\s+Account[:\s]+(?:[A-Za-z0-9]*\*{2,}[A-Za-z0-9]+|[0-9]{8,18})|\s+(?:Receiver|Payment|Reason|Transferred|Service|VAT|Disaster|Total|Region|City)|$)/i);
+    const pdfPayerAccMatch = text.match(/(?:Payer|Customer Name)[:\s]+[A-Za-z\s.-]+?\s+Account[:\s]+([A-Za-z0-9*]{4,18})/i) ||
+                             text.match(/Payer\s+Account[:\s]+([A-Za-z0-9*]{4,18})/i);
     if (pdfPayerMatch && !fields.senderName) fields.senderName = cleanName(pdfPayerMatch[1]);
     if (pdfPayerAccMatch) fields.senderAccount = pdfPayerAccMatch[1];
 
     const pdfReceiverMatch = text.match(/Receiver[:\s]+([A-Za-z0-9\s.&'-]+?)(?=\s+Account:\s*[A-Za-z0-9*]{4,18}|\s+(?:Payment Type|Payment Date|Reference|Reason|Transferred|Service|VAT|Disaster|Total)|$)/i);
-    const pdfReceiverAccMatch = text.match(/Receiver[:\s]+[A-Za-z0-9\s.&'-]+?\s+Account:\s*([A-Za-z0-9*]{4,18})/i);
+    const pdfReceiverAccMatch = text.match(/Receiver[:\s]+[\s\S]+?\s+Account:\s*([A-Za-z0-9*]{4,18})/i);
     if (pdfReceiverMatch && !fields.receiverName) fields.receiverName = cleanName(pdfReceiverMatch[1]);
     if (pdfReceiverAccMatch) fields.receiverAccount = pdfReceiverAccMatch[1];
 
     // Names & Accounts Fallbacks
     if (!fields.senderName) {
       const smsSenderMatch = text.match(/Dear\s+([A-Za-z\s.-]+?)\s+(?:You\s+have|A\s+debit|ETB)/i) ||
-        text.match(/(?:from|sender|payer|debited from|source name)[:\s]+([A-Za-z\s.-]+)/i);
+        text.match(/from\s+([A-Za-z\s.-]+?)(?:-ETB-|-Birr-|-account|\s+account|\s+to|\s+for)/i) ||
+        text.match(/(?:from|sender|payer|customer name|source name|debited from)[:\s]+([A-Za-z\s.-]+)/i);
       if (smsSenderMatch?.[1]) fields.senderName = cleanName(smsSenderMatch[1]);
     }
 
@@ -411,7 +426,7 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     }
 
     if (!fields.senderAccount) {
-      const cbeAccMatch = text.match(/(?:from\s+your\s+account|from\s+account|account)\s+([15][0-9*]{4,17})/i);
+      const cbeAccMatch = text.match(/(?:from\s+your\s+account|from\s+account|account|ETB-)\s*([15][0-9*]{4,17})/i);
       if (cbeAccMatch) fields.senderAccount = cbeAccMatch[1];
     }
 
