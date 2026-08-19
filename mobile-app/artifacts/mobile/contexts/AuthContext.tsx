@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState, useMemo } from "react";
 import { api } from "@/utils/api";
 import { TelegramUser } from "@/utils/telegram";
 
@@ -77,7 +77,7 @@ function normalizeUser(backendUser: Record<string, unknown>): User {
   };
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { readonly children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -89,10 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     loadSession();
-
-    return () => {
-      api.onUnauthorized = undefined;
-    };
   }, []);
 
   async function loadSession() {
@@ -117,12 +113,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const freshUser = normalizeUser(response.data);
         setUser(freshUser);
         await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(freshUser));
-      } else if (response.message && response.message.toLowerCase().includes("token")) {
+      } else if (
+        response.statusCode === 401 ||
+        (response.message && (
+          response.message.toLowerCase().includes("token") ||
+          response.message.toLowerCase().includes("session") ||
+          response.message.toLowerCase().includes("unauthenticated") ||
+          response.message.toLowerCase().includes("log in")
+        ))
+      ) {
         // Token is expired or invalid, clear the session
         setUser(null);
         await AsyncStorage.removeItem(SESSION_KEY);
       }
     } catch (e) {
+      console.warn("Session load error:", e);
       // Offline or backend unavailable — use cached session
     } finally {
       setLoading(false);
@@ -149,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true };
     } catch (e) {
+      console.error("Sign in error:", e);
       return { success: false, error: "Something went wrong. Please try again." };
     }
   }, []);
@@ -188,6 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true };
     } catch (e) {
+      console.error("Sign up error:", e);
       return { success: false, error: "Something went wrong. Please try again." };
     }
   }, []);
@@ -212,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true };
     } catch (e) {
+      console.error("Telegram login error:", e);
       return { success: false, error: "Something went wrong. Please try again." };
     }
   }, []);
@@ -236,6 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true };
     } catch (e) {
+      console.error("Telegram signup error:", e);
       return { success: false, error: "Something went wrong. Please try again." };
     }
   }, []);
@@ -269,7 +278,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(fresh);
         await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(fresh));
       }
-    } catch {
+    } catch (e) {
+      console.warn("Profile update error:", e);
       // Keep optimistic update on failure
     }
   }, [user]);
@@ -285,7 +295,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(fresh);
         await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(fresh));
       }
-    } catch {
+    } catch (e) {
+      console.warn("Plan upgrade error:", e);
       // Fallback: update locally
       const limits: Record<Plan, number> = { free: 20, pro: 999999, enterprise: 999999 };
       await updateProfile({ plan, verificationsLimit: limits[plan] } as Partial<User>);
@@ -300,7 +311,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(freshUser);
         await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(freshUser));
       }
-    } catch {
+    } catch (e) {
+      console.warn("User refresh error:", e);
       // Ignore — use cached
     }
   }, []);
@@ -314,14 +326,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.removeItem(SESSION_KEY);
         return { success: true };
       }
-      return { success: false, error: response.error || "Failed to delete account" };
+      return { success: false, error: response.message || "Failed to delete account" };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Failed to delete account" };
     }
   }, []);
 
+  const contextValue = useMemo(() => ({
+    user, loading, signIn, signUp, signOut, updateProfile, upgradePlan, refreshUser, deleteAccount, loginWithTelegram, signupWithTelegram
+  }), [user, loading, signIn, signUp, signOut, updateProfile, upgradePlan, refreshUser, deleteAccount, loginWithTelegram, signupWithTelegram]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile, upgradePlan, refreshUser, deleteAccount, loginWithTelegram, signupWithTelegram }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

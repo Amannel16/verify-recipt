@@ -471,10 +471,10 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     if (dashenFeeSum > 0) fields.fees = dashenFeeSum;
 
     // Regex extraction for App Receipts
-    const appSenderMatch = text.match(/(?:Sender Name)[\s:;]+([A-Za-z\s/.-]+?)(?:\n|\r|$|Sender Account|Service Type|Transaction Channel)/i);
+    const appSenderMatch = text.match(/(?:Sender Name)[\s:;]+([^\n\r]+?)(?=(?:\n|\r|$|Sender Account|Service Type|Transaction Channel))/i);
     if (appSenderMatch && !fields.senderName) fields.senderName = cleanName(appSenderMatch[1]);
     
-    const appReceiverMatch = text.match(/(?:Receiver Name|Recipient Name|Beneficiary Name)[\s:;]+([A-Za-z\s/.-]+?)(?:\n|\r|$|Beneficiary Bank|Institution Name|Receiver Account|Recipient Account|Budget)/i);
+    const appReceiverMatch = text.match(/(?:Receiver Name|Recipient Name|Beneficiary Name)[\s:;]+([^\n\r]+?)(?=(?:\n|\r|$|Beneficiary Bank|Institution Name|Receiver Account|Recipient Account|Budget))/i);
     if (appReceiverMatch && !fields.receiverName) fields.receiverName = cleanName(appReceiverMatch[1]);
 
     const appSenderAccMatch = text.match(/(?:Sender Account|Sender Acc)(?: Number)?[\s:;]+([A-Za-z0-9*+-]+)(?:\n|\r|$|Service Type|Transaction Channel|Recipient Account|Receiver Name)/i);

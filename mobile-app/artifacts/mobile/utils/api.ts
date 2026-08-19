@@ -11,6 +11,7 @@ export interface ApiResponse<T = unknown> {
   message: string;
   data?: T;
   error?: unknown;
+  statusCode?: number;
 }
 
 function buildApiUrl(baseUrl: string, endpoint: string): string {
@@ -54,7 +55,7 @@ export function normalizeFileUri(fileUri: string): string {
 }
 
 class ApiClient {
-  private baseUrl: string;
+  private readonly baseUrl: string;
   public onUnauthorized?: () => void;
 
   constructor(baseUrl: string) {
@@ -140,7 +141,7 @@ class ApiClient {
         }
 
         const contentType = response.headers.get("content-type");
-        const isJson = contentType && contentType.includes("application/json");
+        const isJson = contentType?.includes("application/json");
         let data: ApiResponse<T> | null = null;
 
         if (isJson) {
@@ -165,6 +166,7 @@ class ApiClient {
               data?.message ||
               `Server error (${response.status}): ${response.statusText || "Unexpected response"}`,
             error: data?.error,
+            statusCode: response.status,
           };
         }
 
@@ -227,7 +229,7 @@ class ApiClient {
 
     // Get filename and type from URI
     const uriParts = cleanUri.split("/");
-    const fileName = uriParts[uriParts.length - 1] ?? "receipt.jpg";
+    const fileName = uriParts.at(-1) ?? "receipt.jpg";
     const ext = fileName.split(".").pop()?.toLowerCase() ?? "jpg";
     const mimeTypes: Record<string, string> = {
       jpg: "image/jpeg",
