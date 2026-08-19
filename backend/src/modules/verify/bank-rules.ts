@@ -91,84 +91,21 @@ export function detectBankFromText(text: string): string {
   if (!text) return "generic";
   const lowerText = text.toLowerCase();
   
-  // 1. CBEBirr special signatures or SMS
+  // 1. Dashen Bank (has priority because it can be used for Telebirr/CBE transfers)
   if (
-    lowerText.includes("cbebirr") ||
-    lowerText.includes("cbe birr") ||
-    lowerText.includes("cbepay1.cbe.com.et") ||
-    lowerText.includes("via cbebirr")
-  ) {
-    logger.info("🏦 Detected bank provider: CBEBirr (via signature layout)");
-    return "cbebirr";
-  }
-
-  // 1.5. Awash Bank special signatures, URL, or SMS
-  if (
-    lowerText.includes("awash bank") ||
-    lowerText.includes("awashbank") ||
-    lowerText.includes("awash birr") ||
-    lowerText.includes("awashpay") ||
-    lowerText.includes("awashpay.awashbank.com") ||
-    lowerText.includes("ib.awashbank.com")
-  ) {
-    logger.info("🏦 Detected bank provider: Awash Bank (via signature layout)");
-    return "awash";
-  }
-
-  // 2. Commercial Bank of Ethiopia (CBE) special signatures, URL, or FT reference numbers
-  if (
-    lowerText.includes("commercial bank of ethiopia") || 
-    lowerText.includes("cbe") || 
-    lowerText.includes("combanketh") ||
-    lowerText.includes("mreciept.cbe") ||
-    lowerText.includes("mreceipt.cbe") ||
-    lowerText.includes("banking with cbe") ||
-    (lowerText.includes("debit transaction") && lowerText.includes("account")) ||
-    (lowerText.includes("debited from") && lowerText.includes("for")) ||
-    /\bFT[A-Z0-9]{8,22}\b/i.test(text)
-  ) {
-    logger.info("🏦 Detected bank provider: CBE (via signature layout)");
-    return "cbe";
-  }
-
-  // 2. Telebirr special signature layout, SMS, or app completion screen
-  if (
-    lowerText.includes("telebirr") || 
-    lowerText.includes("ethiotelecom") ||
-    lowerText.includes("ethio telecom") ||
-    lowerText.includes("transactioninfo.ethiotelecom.et") ||
-    (lowerText.includes("successful") && (lowerText.includes("transaction time") || lowerText.includes("transaction number") || lowerText.includes("transaction type") || lowerText.includes("paid to")))
-  ) {
-    logger.info("🏦 Detected bank provider: telebirr (via signature layout)");
-    return "telebirr";
-  }
-
-  // 3. M-Pesa special signatures or SMS
-  if (
-    lowerText.includes("m-pesa") ||
-    lowerText.includes("mpesa") ||
-    lowerText.includes("safaricom") ||
-    lowerText.includes("m-pesabusiness.safaricom.et") ||
-    (lowerText.includes("received") && lowerText.includes("birr from") && lowerText.includes("transaction number"))
-  ) {
-    logger.info("🏦 Detected bank provider: M-Pesa (via signature layout)");
-    return "m-pesa";
-  }
-
-  // 4. Dashen Bank special signatures or SMS
-  if (
-    lowerText.includes("dashen") ||
-    lowerText.includes("amole") ||
-    lowerText.includes("ipss") ||
+    lowerText.includes("dashen bank") ||
     lowerText.includes("db superapp") ||
     lowerText.includes("dashen super app") ||
-    lowerText.includes("receipts.dashenbanksc.com")
+    lowerText.includes("receipts.dashenbanksc.com") ||
+    lowerText.includes("dashen") ||
+    lowerText.includes("amole") ||
+    lowerText.includes("ipss")
   ) {
     logger.info("🏦 Detected bank provider: Dashen Bank (via signature layout)");
     return "dashen";
   }
 
-  // 5. Awash Bank special signatures, URL, or SMS
+  // 1.5. CBEBirr special signatures or SMS
   if (
     lowerText.includes("awash bank") ||
     lowerText.includes("awashbank") ||
@@ -521,103 +458,54 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     const smsAmtMatch = text.match(/transferred\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)\s+from/i);
     if (smsAmtMatch) fields.amount = parseFloat(smsAmtMatch[1].replace(/,/g, ""));
 
-    const dashenCharge = text.match(/service\s+charge\s+is\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-    const dashenVat = text.match(/vat\s*(?:\(15%\))?\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-    const dashenDrrf = text.match(/drrf\s*(?:\(5%\))?\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const dashenCharge = text.match(/service\s+charge\s+is\s+(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) || 
+                         text.match(/Service-Charge(?:[\s:;]+)?(?:ETB|Birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) || 
+                         text.match(/Service Charge(?:[\s:;]+)?(?:ETB|Birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const dashenVat = text.match(/vat\s*(?:\(15%\))?\s*(?:is|:)?\s*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    const dashenDrrf = text.match(/(?:drrf|Disaster Risk Response Fund Fee)\s*(?:\(5%\))?\s*(?:is|:)?\s*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+    
     let dashenFeeSum = 0;
     if (dashenCharge) dashenFeeSum += parseFloat(dashenCharge[1].replace(/,/g, ""));
     if (dashenVat) dashenFeeSum += parseFloat(dashenVat[1].replace(/,/g, ""));
     if (dashenDrrf) dashenFeeSum += parseFloat(dashenDrrf[1].replace(/,/g, ""));
     if (dashenFeeSum > 0) fields.fees = dashenFeeSum;
 
-    // Run line-substring loop for non-SMS screens
-    for (const line of lines) {
-      const lowerLine = line.toLowerCase();
+    // Regex extraction for App Receipts
+    const appSenderMatch = text.match(/(?:Sender Name)[\s:;]+([A-Za-z\s/.-]+?)(?:\n|\r|$|Sender Account|Service Type|Transaction Channel)/i);
+    if (appSenderMatch && !fields.senderName) fields.senderName = cleanName(appSenderMatch[1]);
+    
+    const appReceiverMatch = text.match(/(?:Receiver Name|Recipient Name|Beneficiary Name)[\s:;]+([A-Za-z\s/.-]+?)(?:\n|\r|$|Beneficiary Bank|Institution Name|Receiver Account|Recipient Account|Budget)/i);
+    if (appReceiverMatch && !fields.receiverName) fields.receiverName = cleanName(appReceiverMatch[1]);
 
-      // Sender Name extraction
-      if (!fields.senderName && lowerLine.includes("sender name")) {
-        const val = line.substring(lowerLine.indexOf("sender name") + 11)
-          .replace(/^[：:;\-.\s|Il1!+=]+/g, "").trim();
-        if (val) fields.senderName = cleanName(val);
-      }
+    const appSenderAccMatch = text.match(/(?:Sender Account|Sender Acc)(?: Number)?[\s:;]+([A-Za-z0-9*+-]+)(?:\n|\r|$|Service Type|Transaction Channel|Recipient Account|Receiver Name)/i);
+    if (appSenderAccMatch && !fields.senderAccount) fields.senderAccount = appSenderAccMatch[1].trim();
 
-      // Recipient / Receiver Name extraction
-      if (!fields.receiverName && (lowerLine.includes("recipient name") || lowerLine.includes("receiver name") || lowerLine.includes("recipient's name"))) {
-        const idx = lowerLine.includes("recipient's name") ? lowerLine.indexOf("recipient's name") + 16 :
-                    (lowerLine.includes("recipient name") ? lowerLine.indexOf("recipient name") + 14 : lowerLine.indexOf("receiver name") + 13);
-        const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").trim();
-        if (val) fields.receiverName = cleanName(val);
-      }
+    const appReceiverAccMatch = text.match(/(?:Receiver Account|Recipient Account|Beneficiary Account)(?: Number)?[\s:;]+([A-Za-z0-9*+-]+)(?:\n|\r|$|Beneficiary Bank|Institution Name|Transaction Reference|Transfer Reference|Budget|Recipient Name|Receiver Name)/i);
+    if (appReceiverAccMatch && !fields.receiverAccount) fields.receiverAccount = appReceiverAccMatch[1].trim();
 
-      // Sender Account
-      if (!fields.senderAccount && (lowerLine.includes("sender account") || lowerLine.includes("sender acc"))) {
-        const idx = lowerLine.includes("sender account") ? lowerLine.indexOf("sender account") + 14 : lowerLine.indexOf("sender acc") + 10;
-        const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").replace(/\s+/g, "").trim();
-        if (val) fields.senderAccount = val;
-      }
-
-      // Recipient Account
-      if (!fields.receiverAccount && (lowerLine.includes("recipient account") || lowerLine.includes("recipient acc") || lowerLine.includes("recipient acct") || lowerLine.includes("receiver account") || lowerLine.includes("receiver acc"))) {
-        const idx = lowerLine.includes("recipient account") ? lowerLine.indexOf("recipient account") + 17 :
-                    lowerLine.includes("recipient acc") ? lowerLine.indexOf("recipient acc") + 13 :
-                    lowerLine.includes("recipient acct") ? lowerLine.indexOf("recipient acct") + 14 :
-                    lowerLine.includes("receiver account") ? lowerLine.indexOf("receiver account") + 16 :
-                    lowerLine.indexOf("receiver acc") + 12;
-        const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").replace(/\s+/g, "").trim();
-        if (val) fields.receiverAccount = val;
-      }
-
-      // FT Ref (Transaction Reference 1)
-      if (!fields.transactionId && (lowerLine.includes("ft ref") || lowerLine.includes("ref no"))) {
-        const idx = lowerLine.includes("ft ref") ? lowerLine.indexOf("ft ref") + 6 : lowerLine.indexOf("ref no") + 6;
-        const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").replace(/\s+/g, "").trim();
-        if (val && val.length > 5) {
-          fields.transactionId = val.toUpperCase();
-          fields.transferReference = val.toUpperCase();
-        }
-      }
-
-      // Transaction Ref (Transaction Reference 2)
-      if (!fields.transactionId && (lowerLine.includes("transaction ref") || lowerLine.includes("transaction reference") || lowerLine.includes("txn ref"))) {
-        const idx = lowerLine.includes("transaction reference") ? lowerLine.indexOf("transaction reference") + 21 :
-                    lowerLine.includes("transaction ref") ? lowerLine.indexOf("transaction ref") + 15 :
-                    lowerLine.indexOf("txn ref") + 7;
-        const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").replace(/\s+/g, "").trim();
-        if (val && val.length > 5) {
-          fields.transactionId = val.toUpperCase();
-          if (!fields.transferReference) fields.transferReference = val.toUpperCase();
-        }
-      }
-
-      // Service Charge
-      if (!fields.fees && (lowerLine.includes("service-charge") || lowerLine.includes("service charge"))) {
-        const idx = lowerLine.includes("service-charge") ? lowerLine.indexOf("service-charge") + 14 : lowerLine.indexOf("service charge") + 14;
-        const val = line.substring(idx).replace(/^[：:;\-.\s|Il1!+=]+/g, "").trim();
-        const numMatch = val.match(/^([\d,]+(?:\.\d{1,2})?)/);
-        if (numMatch) {
-          fields.fees = parseFloat(numMatch[1].replace(/,/g, ""));
-        }
-      }
+    const appTxMatch = text.match(/(?:Transaction Reference|Transaction Ref|Txn Ref)[\s:;]+([A-Za-z0-9]+)(?:\n|\r|$|Transfer Reference|Service Charge|VAT|Date)/i) || 
+                       text.match(/\b(IPSS[A-Z0-9]{8,26})\b/i);
+    if (appTxMatch && !fields.transactionId) {
+      fields.transactionId = appTxMatch[1].toUpperCase();
+      fields.transferReference = appTxMatch[1].toUpperCase();
     }
 
-    // If Transaction ID not found in line-substring loop, use regex backup
-    if (!fields.transactionId) {
-      const txMatch = text.match(/\b(IPSS[A-Z0-9]{8,26})\b/i) 
-        || text.match(/\b(\d{2,4}IPSS[A-Z0-9]{8,26})\b/i);
-      if (txMatch) {
-        fields.transactionId = txMatch[0].toUpperCase();
-        fields.transferReference = txMatch[0].toUpperCase();
-      }
+    const ftRefMatch = text.match(/(?:FT Ref|Transfer Reference)[\s:;]+([A-Za-z0-9]+)(?:\n|\r|$|Transaction Date|Transaction Reference)/i);
+    if (ftRefMatch && !fields.transferReference) {
+      fields.transferReference = ftRefMatch[1].toUpperCase();
+      if (!fields.transactionId) fields.transactionId = ftRefMatch[1].toUpperCase();
     }
 
     if (!fields.amount) {
+      const amtMatch = text.match(/(?:Transaction Amount|Amount|Total)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i) || 
+                       text.match(/(?:Successfully paid|Paid)!?[\s\S]{0,100}?(?:^|\n|\r| )([\d,]+(?:\.\d{1,2})?)\s*\(?(?:ETB|Birr)\)?/i) ||
+                       text.match(/(?:^|\n|\r| )([\d,]+(?:\.\d{1,2})?)\s*\(?ETB\)?/i);
       const signMatch = text.match(/(?:-|\+)?\s*([\d,]+\.\d{2})\s*\(?etb\)?/i);
-      const amtMatch = text.match(/(?:transaction amount|amount|total)[:\s]*(?:etb|birr)?\s*([\d,]+(?:\.\d{1,2})?)/i);
       
-      if (signMatch) {
-        fields.amount = parseFloat(signMatch[1].replace(/,/g, ""));
-      } else if (amtMatch) {
+      if (amtMatch) {
         fields.amount = parseFloat(amtMatch[1].replace(/,/g, ""));
+      } else if (signMatch) {
+        fields.amount = parseFloat(signMatch[1].replace(/,/g, ""));
       }
     }
 
