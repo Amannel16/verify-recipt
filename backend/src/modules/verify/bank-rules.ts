@@ -471,11 +471,14 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     if (dashenFeeSum > 0) fields.fees = dashenFeeSum;
 
     // Regex extraction for App Receipts
-    const appSenderMatch = text.match(/(?:Sender Name)[\s:;]+([^\n\r]+?)(?=(?:\n|\r|$|Sender Account|Service Type|Transaction Channel))/i);
+    const appSenderMatch = text.match(/(?:Sender|Payer)(?:\s+Name)?[\s:;]+([^\n\r]+?)(?=(?:\n|\r|$|Sender Account|Payer Account|Service Type|Transaction Channel|Transaction Date))/i);
     if (appSenderMatch && !fields.senderName) fields.senderName = cleanName(appSenderMatch[1]);
     
-    const appReceiverMatch = text.match(/(?:Receiver Name|Recipient Name|Beneficiary Name)[\s:;]+([^\n\r]+?)(?=(?:\n|\r|$|Beneficiary Bank|Institution Name|Receiver Account|Recipient Account|Budget))/i);
+    const appReceiverMatch = text.match(/(?:Receiver|Reciever|Recipient|Beneficiary)(?:\s+Name)?[\s:;]+([^\n\r]+?)(?=(?:\n|\r|$|Beneficiary Bank|Institution|Instituton|Receiver Account|Reciever Account|Recipient Account|Budget|Transaction Date))/i);
     if (appReceiverMatch && !fields.receiverName) fields.receiverName = cleanName(appReceiverMatch[1]);
+
+    const appDateMatch = text.match(/(?:Transaction Date|Date)[\s:;]+([A-Za-z]{3}\s+\d{1,2},?\s*\d{4})/i) || text.match(/(?:Transaction Date|Date)[\s:;]+(\d{4}-\d{2}-\d{2})/i);
+    if (appDateMatch) fields.date = appDateMatch[1];
 
     const appSenderAccMatch = text.match(/(?:Sender Account|Sender Acc)(?: Number)?[\s:;]+([A-Za-z0-9*+-]+)(?:\n|\r|$|Service Type|Transaction Channel|Recipient Account|Receiver Name)/i);
     if (appSenderAccMatch && !fields.senderAccount) fields.senderAccount = appSenderAccMatch[1].trim();
