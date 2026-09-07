@@ -24,14 +24,14 @@ export interface BankTemplate {
 
 const BANK_TEMPLATES: BankTemplate[] = [
   {
-    provider: "cbe",
-    displayName: "CBE",
-    keywords: ["commercial bank of ethiopia", "cbe", "combanketh"]
-  },
-  {
     provider: "cbebirr",
     displayName: "CBEBirr",
     keywords: ["cbebirr", "cbe birr", "cbepay1.cbe.com.et"]
+  },
+  {
+    provider: "cbe",
+    displayName: "CBE",
+    keywords: ["commercial bank of ethiopia", "cbe", "combanketh"]
   },
   {
     provider: "telebirr",
@@ -122,7 +122,7 @@ export function detectBankFromText(text: string): string {
   
   // 6. General templates
   for (const template of BANK_TEMPLATES) {
-    if (template.provider === "cbe" || template.provider === "telebirr" || template.provider === "dashen" || template.provider === "m-pesa" || template.provider === "awash") continue;
+    // No longer skipping providers to allow fallback detection
 
     for (const keyword of template.keywords) {
       if (lowerText.includes(keyword)) {
@@ -228,7 +228,9 @@ export function parseReceiptWithBankRules(text: string, provider: string): Extra
     if (receiverMatch) fields.receiverName = cleanName(receiverMatch[1]);
 
     const dateMatch = text.match(/on\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})/i) ||
-      text.match(/on\s+(\d{2}-\d{2}-\d{4})/i);
+      text.match(/on\s+(\d{2}-\d{2}-\d{4})/i) ||
+      text.match(/(\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2})/i) ||
+      text.match(/(?:date|payment date|transaction date)[:\s]*([\d\/\-:\sA-Za-z]+?)(?:\n|\r|$)/i);
     if (dateMatch) {
        fields.date = dateMatch[1];
     }

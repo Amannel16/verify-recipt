@@ -108,7 +108,8 @@ export class CbebirrProviderAdapter implements PaymentProviderAdapter {
       
     const dateMatch = text.match(/(?:date|payment date|transaction date)[:\s]*([\d\/\-:\sA-Za-z]+?)(?:\n|\r|$)/i) ||
       text.match(/on\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})/i) ||
-      text.match(/on\s+(\d{2}-\d{2}-\d{4})/i);
+      text.match(/on\s+(\d{2}-\d{2}-\d{4})/i) ||
+      text.match(/(\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2})/i);
 
     return {
       provider: "cbebirr",
